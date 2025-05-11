@@ -11,14 +11,14 @@ import {
   User,
   AuthProvider,
   UserRole,
-} from '../../../domain/users/entities/user.entity';
+} from '@domain/users/entities/user.entity';
 import {
   IUserRepository,
   USER_REPOSITORY,
-} from '../../../domain/users/interfaces/user.repository.interface';
-import { LoginDto } from '../../../domain/auth/dtos/login.dto';
-import { FirebaseLoginDto } from '../../../domain/auth/dtos/firebase-login.dto';
-import { FirebaseAdminService } from '../../../infrastructure/firebase/services/firebase-admin.service';
+} from '@domain/users/interfaces/user.repository.interface';
+import { LoginDto } from '@interfaces/api/dtos/auth/login.dto';
+import { FirebaseLoginDto } from '@interfaces/api/dtos/auth/firebase-login.dto';
+import { FirebaseAdminService } from '@infrastructure/external-services/firebase/firebase-admin.service';
 
 @Injectable()
 export class AuthService {

@@ -15,11 +15,11 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { GoalService } from '../../../application/goals/services/goal.service';
-import { CreateGoalDto } from '../../../domain/goals/dtos/create-goal.dto';
-import { UpdateGoalDto } from '../../../domain/goals/dtos/update-goal.dto';
-import { Goal } from '../../../domain/goals/entities/goal.entity';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { GoalService } from '../../../../application/goals/use-cases/goal.service';
+import { CreateGoalDto } from '../../dtos/goals/create-goal.dto';
+import { UpdateGoalDto } from '../../dtos/goals/update-goal.dto';
+import { Goal } from '../../../../domain/goals/entities/goal.entity';
+import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { Request as ExpressRequest } from 'express';
 import { Types } from 'mongoose';
 

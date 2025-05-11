@@ -1,9 +1,9 @@
 import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { AuthService } from '../../../application/auth/services/auth.service';
-import { LoginDto } from '../../../domain/auth/dtos/login.dto';
-import { FirebaseLoginDto } from '../../../domain/auth/dtos/firebase-login.dto';
-import { Public } from '../decorators/public.decorator';
+import { AuthService } from '@application/auth/use-cases/auth.service';
+import { LoginDto } from '@interfaces/api/dtos/auth/login.dto';
+import { FirebaseLoginDto } from '@interfaces/api/dtos/auth/firebase-login.dto';
+import { Public } from '@interfaces/api/decorators/public.decorator';
 
 @ApiTags('Authentication')
 @Controller('auth')

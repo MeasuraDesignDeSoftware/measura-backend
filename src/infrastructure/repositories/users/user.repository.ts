@@ -5,8 +5,8 @@ import {
   User,
   UserDocument,
   AuthProvider,
-} from '../../../domain/users/entities/user.entity';
-import { IUserRepository } from '../../../domain/users/interfaces/user.repository.interface';
+} from '@domain/users/entities/user.entity';
+import { IUserRepository } from '@domain/users/interfaces/user.repository.interface';
 
 @Injectable()
 export class UserRepository implements IUserRepository {

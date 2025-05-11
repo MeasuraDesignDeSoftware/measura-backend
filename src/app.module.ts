@@ -2,10 +2,10 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { WinstonModule } from 'nest-winston';
-import { winstonConfig } from './shared/config/winston.config';
-import appConfig from './shared/config/app.config';
-import { GoalsModule } from './domain/goals/goals.module';
-import { AuthModule } from './domain/auth/auth.module';
+import { GoalsModule } from './goals.module';
+import { AuthModule } from './auth.module';
+import appConfig from '@shared/config/app.config';
+import { winstonConfig } from '@shared/config/winston.config';
 
 @Module({
   imports: [
@@ -15,7 +15,6 @@ import { AuthModule } from './domain/auth/auth.module';
     }),
 
     MongooseModule.forRootAsync({
-      imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         uri: configService.get<string>('app.mongodb.uri'),
       }),

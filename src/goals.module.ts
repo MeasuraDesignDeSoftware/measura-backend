@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { Goal, GoalSchema } from './entities/goal.entity';
-import { GoalController } from '../../interfaces/goals/controllers/goal.controller';
-import { GoalService } from '../../application/goals/services/goal.service';
-import { GoalRepository } from '../../infrastructure/goals/repositories/goal.repository';
-import { GOAL_REPOSITORY } from './interfaces/goal.repository.interface';
+import { Goal, GoalSchema } from '@domain/goals/entities/goal.entity';
+import { GoalController } from '@interfaces/api/controllers/goals/goal.controller';
+import { GoalService } from '@application/goals/use-cases/goal.service';
+import { GoalRepository } from '@infrastructure/repositories/goals/goal.repository';
+import { GOAL_REPOSITORY } from '@domain/goals/interfaces/goal.repository.interface';
 
 @Module({
   imports: [

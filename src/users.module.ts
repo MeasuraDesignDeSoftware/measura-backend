@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { User, UserSchema } from './entities/user.entity';
-import { UserRepository } from '../../infrastructure/users/repositories/user.repository';
-import { USER_REPOSITORY } from './interfaces/user.repository.interface';
+import { User, UserSchema } from '@domain/users/entities/user.entity';
+import { UserRepository } from '@infrastructure/repositories/users/user.repository';
+import { USER_REPOSITORY } from '@domain/users/interfaces/user.repository.interface';
 
 @Module({
   imports: [

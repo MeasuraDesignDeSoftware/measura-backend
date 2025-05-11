@@ -1,12 +1,12 @@
 import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { Types } from 'mongoose';
-import { Goal } from '../../../domain/goals/entities/goal.entity';
+import { Goal } from '@domain/goals/entities/goal.entity';
 import {
   IGoalRepository,
   GOAL_REPOSITORY,
-} from '../../../domain/goals/interfaces/goal.repository.interface';
-import { CreateGoalDto } from '../../../domain/goals/dtos/create-goal.dto';
-import { UpdateGoalDto } from '../../../domain/goals/dtos/update-goal.dto';
+} from '@domain/goals/interfaces/goal.repository.interface';
+import { CreateGoalDto } from '@interfaces/api/dtos/goals/create-goal.dto';
+import { UpdateGoalDto } from '@interfaces/api/dtos/goals/update-goal.dto';
 
 @Injectable()
 export class GoalService {

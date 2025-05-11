@@ -2,11 +2,11 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { AuthService } from '../../application/auth/services/auth.service';
-import { JwtStrategy } from '../../interfaces/auth/strategies/jwt.strategy';
-import { FirebaseAdminService } from '../../infrastructure/firebase/services/firebase-admin.service';
-import { UsersModule } from '../users/users.module';
-import { AuthController } from '../../interfaces/auth/controllers/auth.controller';
+import { AuthService } from '@application/auth/use-cases/auth.service';
+import { JwtStrategy } from '@interfaces/api/strategies/jwt.strategy';
+import { FirebaseAdminService } from '@infrastructure/external-services/firebase/firebase-admin.service';
+import { UsersModule } from './users.module';
+import { AuthController } from '@interfaces/api/controllers/auth/auth.controller';
 
 @Module({
   imports: [
