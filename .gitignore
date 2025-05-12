@@ -50,3 +50,6 @@ lerna-debug.log*
 
 # Debug
 .debug/ 
+
+# Firebase
+firebase-service-account.json

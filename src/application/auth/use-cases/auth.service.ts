@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   BadRequestException,
   Inject,
+  ConflictException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -18,6 +19,7 @@ import {
 } from '@domain/users/interfaces/user.repository.interface';
 import { LoginDto } from '@interfaces/api/dtos/auth/login.dto';
 import { FirebaseLoginDto } from '@interfaces/api/dtos/auth/firebase-login.dto';
+import { RegisterDto } from '@interfaces/api/dtos/auth/register.dto';
 import { FirebaseAdminService } from '@infrastructure/external-services/firebase/firebase-admin.service';
 
 @Injectable()
@@ -53,6 +55,35 @@ export class AuthService {
   async login(loginDto: LoginDto): Promise<{ accessToken: string }> {
     const user = await this.validateUser(loginDto.login, loginDto.password);
     return this.generateToken(user);
+  }
+
+  async register(registerDto: RegisterDto): Promise<{ accessToken: string }> {
+    const existingEmail = await this.userRepository.findByEmail(
+      registerDto.email,
+    );
+    if (existingEmail) {
+      throw new ConflictException('Email already exists');
+    }
+
+    const existingUsername = await this.userRepository.findByUsername(
+      registerDto.username,
+    );
+    if (existingUsername) {
+      throw new ConflictException('Username already exists');
+    }
+
+    const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+
+    const newUser = await this.userRepository.create({
+      email: registerDto.email,
+      username: registerDto.username,
+      password: hashedPassword,
+      provider: AuthProvider.LOCAL,
+      role: UserRole.USER,
+      isActive: true,
+    });
+
+    return this.generateToken(newUser);
   }
 
   async firebaseLogin(

@@ -54,4 +54,8 @@ export class UserRepository implements IUserRepository {
   ): Promise<User | null> {
     return this.userModel.findOne({ provider, email }).exec();
   }
+
+  async findAll(): Promise<User[]> {
+    return this.userModel.find().exec();
+  }
 }

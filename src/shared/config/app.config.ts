@@ -14,6 +14,11 @@ export default registerAs('app', () => ({
     expiresIn: process.env.JWT_EXPIRATION || '1h',
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRATION || '7d',
   },
+  firebase: {
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    privateKey: process.env.FIREBASE_PRIVATE_KEY,
+  },
   email: {
     host: process.env.SMTP_HOST || 'smtp.example.com',
     port: parseInt(process.env.SMTP_PORT || '587', 10),
