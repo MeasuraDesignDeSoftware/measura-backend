@@ -58,4 +58,63 @@ export class UserRepository implements IUserRepository {
   async findAll(): Promise<User[]> {
     return this.userModel.find().exec();
   }
+
+  async updateRefreshToken(
+    userId: string,
+    refreshToken: string | null,
+  ): Promise<void> {
+    await this.userModel
+      .findByIdAndUpdate(userId, { refreshToken }, { new: true })
+      .exec();
+  }
+
+  async findByRefreshToken(refreshToken: string): Promise<User | null> {
+    return this.userModel.findOne({ refreshToken }).exec();
+  }
+
+  async setResetToken(
+    userId: string,
+    resetToken: string,
+    resetTokenExpires: Date,
+  ): Promise<void> {
+    await this.userModel
+      .findByIdAndUpdate(
+        userId,
+        { resetToken, resetTokenExpires },
+        { new: true },
+      )
+      .exec();
+  }
+
+  async findByResetToken(resetToken: string): Promise<User | null> {
+    return this.userModel
+      .findOne({
+        resetToken,
+        resetTokenExpires: { $gt: new Date() },
+      })
+      .exec();
+  }
+
+  async findByVerificationToken(token: string): Promise<User | null> {
+    return this.userModel.findOne({ verificationToken: token }).exec();
+  }
+
+  async setVerificationToken(userId: string, token: string): Promise<void> {
+    await this.userModel
+      .findByIdAndUpdate(userId, { verificationToken: token }, { new: true })
+      .exec();
+  }
+
+  async markEmailAsVerified(userId: string): Promise<void> {
+    await this.userModel
+      .findByIdAndUpdate(
+        userId,
+        {
+          isEmailVerified: true,
+          verificationToken: undefined,
+        },
+        { new: true },
+      )
+      .exec();
+  }
 }

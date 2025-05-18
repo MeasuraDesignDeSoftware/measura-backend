@@ -19,6 +19,12 @@ export class GoalRepository implements IGoalRepository {
     return this.goalModel.findById(id).exec();
   }
 
+  async findByIds(ids: string[]): Promise<Goal[]> {
+    // Convert string IDs to ObjectIds for MongoDB query
+    const objectIds = ids.map((id) => new Types.ObjectId(id));
+    return this.goalModel.find({ _id: { $in: objectIds } }).exec();
+  }
+
   async findAll(): Promise<Goal[]> {
     return this.goalModel.find().exec();
   }

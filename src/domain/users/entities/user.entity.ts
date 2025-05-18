@@ -7,6 +7,8 @@ export type UserDocument = User & Document;
 export enum UserRole {
   USER = 'user',
   ADMIN = 'admin',
+  PROJECT_MANAGER = 'project-manager',
+  MEASUREMENT_ANALYST = 'measurement-analyst',
 }
 
 export enum AuthProvider {
@@ -51,6 +53,26 @@ export class User {
   })
   @Prop({ type: String, enum: AuthProvider, required: true })
   provider: AuthProvider;
+
+  @ApiProperty({ description: 'Whether the email is verified', default: false })
+  @Prop({ default: false })
+  isEmailVerified: boolean;
+
+  @ApiProperty({ description: 'Email verification token' })
+  @Prop()
+  verificationToken?: string;
+
+  @ApiProperty({ description: 'Refresh token for JWT authentication' })
+  @Prop()
+  refreshToken?: string;
+
+  @ApiProperty({ description: 'Password reset token' })
+  @Prop()
+  resetToken?: string;
+
+  @ApiProperty({ description: 'Password reset token expiration date' })
+  @Prop()
+  resetTokenExpires?: Date;
 
   @ApiProperty({ description: 'The date when the user was created' })
   createdAt: Date;

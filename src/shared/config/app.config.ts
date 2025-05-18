@@ -11,8 +11,8 @@ export default registerAs('app', () => ({
     refreshSecret:
       process.env.JWT_REFRESH_SECRET ||
       'default-refresh-secret-key-change-in-production',
-    expiresIn: process.env.JWT_EXPIRATION || '1h',
-    refreshExpiresIn: process.env.JWT_REFRESH_EXPIRATION || '7d',
+    expiresIn: process.env.JWT_EXPIRES_IN || '1h',
+    refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   },
   firebase: {
     projectId: process.env.FIREBASE_PROJECT_ID,
@@ -20,10 +20,12 @@ export default registerAs('app', () => ({
     privateKey: process.env.FIREBASE_PRIVATE_KEY,
   },
   email: {
-    host: process.env.SMTP_HOST || 'smtp.example.com',
-    port: parseInt(process.env.SMTP_PORT || '587', 10),
-    user: process.env.SMTP_USER || '',
-    pass: process.env.SMTP_PASS || '',
+    host: process.env.EMAIL_HOST || 'smtp.example.com',
+    port: parseInt(process.env.EMAIL_PORT || '587', 10),
+    user: process.env.EMAIL_USER || '',
+    pass: process.env.EMAIL_PASSWORD || '',
+    from: process.env.EMAIL_FROM || 'Measura <no-reply@measura.com>',
+    frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
   },
   swagger: {
     title: process.env.SWAGGER_TITLE || 'Measura API',

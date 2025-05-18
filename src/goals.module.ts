@@ -18,6 +18,12 @@ import { GOAL_REPOSITORY } from '@domain/goals/interfaces/goal.repository.interf
       useClass: GoalRepository,
     },
   ],
-  exports: [GoalService],
+  exports: [
+    GoalService,
+    {
+      provide: GOAL_REPOSITORY,
+      useClass: GoalRepository,
+    },
+  ],
 })
 export class GoalsModule {}

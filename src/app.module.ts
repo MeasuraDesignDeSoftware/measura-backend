@@ -4,6 +4,13 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { WinstonModule } from 'nest-winston';
 import { GoalsModule } from './goals.module';
 import { AuthModule } from './auth.module';
+import { QuestionsModule } from './questions.module';
+import { MetricsModule } from './metrics.module';
+import { GQMModule } from './gqm.module';
+import { ObjectivesModule } from './objectives.module';
+import { PlansModule } from './plans.module';
+import { GQMControllerModule } from './interfaces/api/controllers/gqm/gqm.module';
+import { MetricsControllerModule } from './interfaces/api/controllers/metrics/metrics.module';
 import appConfig from '@shared/config/app.config';
 import { winstonConfig } from '@shared/config/winston.config';
 
@@ -25,6 +32,13 @@ import { winstonConfig } from '@shared/config/winston.config';
 
     GoalsModule,
     AuthModule,
+    QuestionsModule,
+    MetricsModule,
+    GQMModule,
+    ObjectivesModule,
+    PlansModule,
+    GQMControllerModule,
+    MetricsControllerModule,
   ],
   controllers: [],
   providers: [],
