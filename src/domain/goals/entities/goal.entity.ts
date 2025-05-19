@@ -4,6 +4,13 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export type GoalDocument = Goal & Document;
 
+export enum GoalStatus {
+  DRAFT = 'DRAFT',
+  ACTIVE = 'ACTIVE',
+  COMPLETED = 'COMPLETED',
+  ARCHIVED = 'ARCHIVED',
+}
+
 @Schema({ timestamps: true })
 export class Goal {
   @ApiProperty({ description: 'The unique identifier of the goal' })
@@ -20,6 +27,10 @@ export class Goal {
   @ApiProperty({ description: 'The ID of the user who created the goal' })
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   createdBy: Types.ObjectId;
+
+  @ApiProperty({ description: 'The status of the goal' })
+  @Prop({ type: String, enum: GoalStatus, default: GoalStatus.ACTIVE })
+  status: GoalStatus;
 
   @ApiProperty({ description: 'The date when the goal was created' })
   createdAt: Date;

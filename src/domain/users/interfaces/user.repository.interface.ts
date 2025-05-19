@@ -12,4 +12,25 @@ export interface IUserRepository {
   update(id: string, user: Partial<User>): Promise<User | null>;
   delete(id: string): Promise<boolean>;
   findByProviderAndEmail(provider: string, email: string): Promise<User | null>;
+  updateRefreshToken(
+    userId: string,
+    refreshToken: string | null,
+  ): Promise<void>;
+  findByRefreshToken(refreshToken: string): Promise<User | null>;
+  setResetToken(
+    userId: string,
+    resetToken: string,
+    resetTokenExpires: Date,
+  ): Promise<void>;
+  clearResetToken(userId: string): Promise<void>;
+  findByResetToken(resetToken: string): Promise<User | null>;
+  findAllWithResetTokens(): Promise<User[]>;
+  findByVerificationToken(token: string): Promise<User | null>;
+  findAllWithVerificationTokens(): Promise<User[]>;
+  setVerificationToken(
+    userId: string,
+    token: string,
+    tokenExpires: Date,
+  ): Promise<void>;
+  markEmailAsVerified(userId: string): Promise<void>;
 }

@@ -2,6 +2,11 @@
 /dist
 /node_modules
 
+# Environment
+.env
+.env.*
+!.env.example
+
 # Logs
 logs
 *.log
@@ -34,22 +39,44 @@ lerna-debug.log*
 !.vscode/launch.json
 !.vscode/extensions.json
 
-# Environment
-.env
-.env.*
-!.env.example
+# Docker
+docker-compose.override.yml
 
 # Temporary files
 *.swp
 *.swo
-*~
+/tmp
 
-# Build
+# Build files
 /build
-/dist
+
+# MongoDB local data
+/data
+
+# Dependency directories
+/.pnp
+.pnp.js
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Next.js build output
+.next
+out
+
+# TypeScript incremental compilation cache
+*.tsbuildinfo
+
+# Reports
+/reports
 
 # Debug
 .debug/ 
 
 # Firebase
 firebase-service-account.json
+
+TODO.md

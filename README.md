@@ -1,98 +1,187 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Measura - Software Measurement and Estimation Platform
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+[![NestJS](https://img.shields.io/badge/NestJS-10.x-red.svg)](https://nestjs.com/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-7.x-green.svg)](https://www.mongodb.com/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-18.x-green.svg)](https://nodejs.org/)
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Overview
 
-## Description
+Measura is a comprehensive web-based solution designed to support software measurement processes and project estimation for IT organizations. Built on established methodologies like GQM (Goal-Question-Metric), MR-MPS-SW measurement processes, and Function Point Analysis (FPA), Measura helps teams align metrics with organizational goals, automate measurements, and improve estimation accuracy.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+### Features
 
-## Project setup
+- **Goal-Based Measurement**: Implement the GQM approach to define objectives, questions, and metrics
+- **Measurement Planning**: Create structured measurement plans aligned with business goals
+- **Data Collection**: Manual and automated data collection from development tools
+- **Export Capabilities**: Export plans in multiple formats (JSON, CSV, PDF)
+- **Role-Based Access**: Separate interfaces for project managers and measurement analysts
+- **API Integration**: RESTful API with Swagger documentation
+- **Authentication**: JWT-based authentication with role-based access control
 
-```bash
-$ yarn install
+## Documentation
+
+Detailed documentation for Measura is available in the [docs](./docs) directory:
+
+- [GQM Framework](./docs/GQM-Framework.md) - Comprehensive explanation of the Goal-Question-Metric implementation
+- [API Reference](http://localhost:3000/api) - Swagger API documentation (available when app is running)
+- [TODO List](./TODO.md) - Current development status and upcoming features
+
+## Architecture
+
+Measura follows Clean Architecture principles with Domain-Driven Design (DDD):
+
+```
+src/
+├── domain/         # Business entities, repository interfaces
+│   ├── auth/       # Authentication domain
+│   ├── goals/      # Goals domain
+│   ├── metrics/    # Metrics domain
+│   ├── plans/      # Plans domain
+│   ├── users/      # Users domain
+│   └── objectives/ # Objectives domain
+├── application/    # Use cases, business logic
+├── infrastructure/ # External services, database implementation
+├── interfaces/     # Controllers, DTOs, API endpoints
+└── shared/         # Common utilities, configurations
 ```
 
-## Compile and run the project
+## Technology Stack
+
+- **Backend Framework**: [NestJS](https://nestjs.com/) 10.x
+- **Database**: [MongoDB](https://www.mongodb.com/) 7.x with Mongoose
+- **Authentication**: JWT (JSON Web Token)
+- **API Documentation**: Swagger/OpenAPI
+- **Testing**: Jest
+- **PDF Generation**: Puppeteer
+- **Logging**: Winston
+- **Validation**: class-validator and class-transformer
+
+## Prerequisites
+
+- Node.js (>= 18.x)
+- MongoDB (>= 7.x)
+- npm or yarn
+
+## Installation
 
 ```bash
-# development
-$ yarn run start
+# Clone the repository
+git clone https://github.com/your-username/measura-backend.git
+cd measura-backend
 
-# watch mode
-$ yarn run start:dev
+# Install dependencies
+npm install
+# or
+yarn install
 
-# production mode
-$ yarn run start:prod
+# Configure environment variables
+cp .env.example .env
+# Edit .env with your configuration
 ```
 
-## Run tests
+## Running the Application
 
 ```bash
-# unit tests
-$ yarn run test
+# Development mode
+npm run start:dev
+# or
+yarn start:dev
 
-# e2e tests
-$ yarn run test:e2e
-
-# test coverage
-$ yarn run test:cov
+# Production build
+npm run build
+npm run start:prod
+# or
+yarn build
+yarn start:prod
 ```
 
-## Deployment
+## Environment Configuration
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+Create a `.env` file with the following variables:
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+```
+# Application
+PORT=3000
+NODE_ENV=development
+
+# MongoDB
+MONGODB_URI=mongodb://localhost:27017/measura
+
+# JWT Authentication
+JWT_SECRET=your_jwt_secret
+JWT_EXPIRATION=1d
+
+# Logging
+LOG_LEVEL=info
+LOG_FORMAT=json
+
+# Integration APIs (optional)
+JIRA_API_URL=
+JIRA_API_TOKEN=
+GITHUB_API_TOKEN=
+```
+
+## API Documentation
+
+Once the application is running, access the Swagger documentation at:
+
+```
+http://localhost:3000/api
+```
+
+## Testing
 
 ```bash
-$ yarn install -g @nestjs/mau
-$ mau deploy
+# Run unit tests
+npm run test
+# or
+yarn test
+
+# Run end-to-end tests
+npm run test:e2e
+# or
+yarn test:e2e
+
+# Test coverage
+npm run test:cov
+# or
+yarn test:cov
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Docker
 
-## Resources
+```bash
+# Build Docker image
+docker build -t measura-backend .
 
-Check out a few resources that may come in handy when working with NestJS:
+# Run container
+docker run -p 3000:3000 --env-file .env measura-backend
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+## Project Structure
 
-## Support
+- **Domain Layer**: Contains business entities, value objects, and repository interfaces
+- **Application Layer**: Implements use cases and business logic
+- **Infrastructure Layer**: Contains implementations of repositories and external services
+- **Interface Layer**: Contains controllers, DTOs, and API endpoints
+- **Shared Layer**: Contains common utilities and configurations
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## Contributing
 
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- GQM (Goal-Question-Metric) methodology
+- MR-MPS-SW measurement processes
+- Function Point Analysis (FPA)
+- NestJS framework and community

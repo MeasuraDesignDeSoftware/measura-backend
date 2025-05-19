@@ -1,171 +1,120 @@
 import {
-  Controller,
-  Get,
-  Post,
   Body,
-  Param,
+  Controller,
   Delete,
+  Get,
+  Param,
+  Post,
+  Put,
   UseGuards,
-  Patch,
-  Request,
 } from '@nestjs/common';
 import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
   ApiBearerAuth,
+  ApiOperation,
   ApiParam,
+  ApiResponse,
+  ApiTags,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { RolesGuard } from '../../guards/roles.guard';
 import { Roles } from '../../decorators/roles.decorator';
+import { UserRole } from '@domain/users/entities/user.entity';
+import { CreateUserDto, UpdateUserDto } from '@domain/users/dtos';
 import { UserService } from '@application/users/use-cases/user.service';
-import { CreateUserDto } from '../../dtos/users/create-user.dto';
-import { UpdateUserDto } from '../../dtos/users/update-user.dto';
-import { User, UserRole } from '@domain/users/entities/user.entity';
 
-interface RequestWithUser extends Request {
-  user: User;
-}
-
-@ApiTags('users')
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@ApiTags('Users')
 @Controller('users')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@ApiBearerAuth()
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Post()
-  @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Create a new user' })
   @ApiResponse({
     status: 201,
     description: 'The user has been successfully created.',
-    type: User,
   })
-  @ApiResponse({
-    status: 400,
-    description: 'Bad request, validation failed.',
-  })
-  @ApiResponse({
-    status: 409,
-    description: 'Conflict, email or username already exists.',
-  })
-  create(@Body() createUserDto: CreateUserDto): Promise<User> {
+  @ApiResponse({ status: 400, description: 'Bad request.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  async create(@Body() createUserDto: CreateUserDto) {
     return this.userService.create(createUserDto);
   }
 
   @Get()
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.PROJECT_MANAGER)
   @ApiOperation({ summary: 'Get all users' })
   @ApiResponse({
     status: 200,
     description: 'Return all users.',
-    type: [User],
   })
-  findAll(): Promise<User[]> {
+  async findAll() {
     return this.userService.findAll();
   }
 
-  @Get('me')
-  @ApiOperation({ summary: 'Get current user profile' })
+  @Get('email/:email')
+  @Roles(UserRole.ADMIN, UserRole.PROJECT_MANAGER)
+  @ApiOperation({ summary: 'Get a user by email' })
+  @ApiParam({
+    name: 'email',
+    description: 'The email of the user',
+  })
   @ApiResponse({
     status: 200,
-    description: 'Return the current user.',
-    type: User,
+    description: 'Return the user with the specified email.',
   })
-  getProfile(@Request() req: RequestWithUser): Promise<User> {
-    return this.userService.findOne(req.user._id.toString());
-  }
-
-  @Patch('me')
-  @ApiOperation({ summary: 'Update current user profile' })
-  @ApiResponse({
-    status: 200,
-    description: 'The user has been successfully updated.',
-    type: User,
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Bad request, validation failed.',
-  })
-  @ApiResponse({
-    status: 409,
-    description: 'Conflict, email or username already exists.',
-  })
-  updateProfile(
-    @Request() req: RequestWithUser,
-    @Body() updateUserDto: UpdateUserDto,
-  ): Promise<User> {
-    if (req.user.role !== UserRole.ADMIN) {
-      delete updateUserDto.role;
-    }
-    return this.userService.update(req.user._id.toString(), updateUserDto);
+  @ApiResponse({ status: 404, description: 'User not found.' })
+  async findByEmail(@Param('email') email: string) {
+    return this.userService.findByEmail(email);
   }
 
   @Get(':id')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.PROJECT_MANAGER)
   @ApiOperation({ summary: 'Get a user by id' })
-  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiParam({
+    name: 'id',
+    description: 'The id of the user',
+  })
   @ApiResponse({
     status: 200,
-    description: 'Return the user.',
-    type: User,
+    description: 'Return the user with the specified id.',
   })
-  @ApiResponse({
-    status: 404,
-    description: 'User not found.',
-  })
-  findOne(@Param('id') id: string): Promise<User> {
+  @ApiResponse({ status: 404, description: 'User not found.' })
+  async findOne(@Param('id') id: string) {
     return this.userService.findOne(id);
   }
 
-  @Patch(':id')
-  @UseGuards(RolesGuard)
+  @Put(':id')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Update a user' })
-  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiParam({
+    name: 'id',
+    description: 'The id of the user',
+  })
   @ApiResponse({
     status: 200,
     description: 'The user has been successfully updated.',
-    type: User,
   })
-  @ApiResponse({
-    status: 400,
-    description: 'Bad request, validation failed.',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'User not found.',
-  })
-  @ApiResponse({
-    status: 409,
-    description: 'Conflict, email or username already exists.',
-  })
-  update(
-    @Param('id') id: string,
-    @Body() updateUserDto: UpdateUserDto,
-  ): Promise<User> {
+  @ApiResponse({ status: 400, description: 'Bad request.' })
+  @ApiResponse({ status: 404, description: 'User not found.' })
+  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
     return this.userService.update(id, updateUserDto);
   }
 
   @Delete(':id')
-  @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Delete a user' })
-  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiParam({
+    name: 'id',
+    description: 'The id of the user',
+  })
   @ApiResponse({
     status: 200,
     description: 'The user has been successfully deleted.',
   })
-  @ApiResponse({
-    status: 404,
-    description: 'User not found.',
-  })
-  remove(@Param('id') id: string): Promise<{ success: boolean }> {
-    return this.userService.remove(id).then((success) => ({ success }));
+  @ApiResponse({ status: 404, description: 'User not found.' })
+  async remove(@Param('id') id: string) {
+    return this.userService.remove(id);
   }
 }
