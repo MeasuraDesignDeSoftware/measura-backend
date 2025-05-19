@@ -1,8 +1,9 @@
 # Measura - Software Measurement and Estimation Platform
 
-[![NestJS](https://img.shields.io/badge/NestJS-8.x-red.svg)](https://nestjs.com/)
-[![MongoDB](https://img.shields.io/badge/MongoDB-5.x-green.svg)](https://www.mongodb.com/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-4.x-blue.svg)](https://www.typescriptlang.org/)
+[![NestJS](https://img.shields.io/badge/NestJS-10.x-red.svg)](https://nestjs.com/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-7.x-green.svg)](https://www.mongodb.com/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-18.x-green.svg)](https://nodejs.org/)
 
 ## Overview
 
@@ -11,12 +12,12 @@ Measura is a comprehensive web-based solution designed to support software measu
 ### Features
 
 - **Goal-Based Measurement**: Implement the GQM approach to define objectives, questions, and metrics
-- **Function Point Analysis**: Automate software size estimation with industry-standard FPA methodology
 - **Measurement Planning**: Create structured measurement plans aligned with business goals
 - **Data Collection**: Manual and automated data collection from development tools
-- **Visual Dashboards**: Monitor KPIs and track progress against objectives
-- **Integration**: Connect with tools like Jira, GitHub, Azure DevOps, and ClickUp
+- **Export Capabilities**: Export plans in multiple formats (JSON, CSV, PDF)
 - **Role-Based Access**: Separate interfaces for project managers and measurement analysts
+- **API Integration**: RESTful API with Swagger documentation
+- **Authentication**: JWT-based authentication with role-based access control
 
 ## Documentation
 
@@ -24,8 +25,7 @@ Detailed documentation for Measura is available in the [docs](./docs) directory:
 
 - [GQM Framework](./docs/GQM-Framework.md) - Comprehensive explanation of the Goal-Question-Metric implementation
 - [API Reference](http://localhost:3000/api) - Swagger API documentation (available when app is running)
-
-Additional documentation will be added as the project evolves.
+- [TODO List](./TODO.md) - Current development status and upcoming features
 
 ## Architecture
 
@@ -39,7 +39,7 @@ src/
 │   ├── metrics/    # Metrics domain
 │   ├── plans/      # Plans domain
 │   ├── users/      # Users domain
-│   └── estimates/  # Function point estimates domain
+│   └── objectives/ # Objectives domain
 ├── application/    # Use cases, business logic
 ├── infrastructure/ # External services, database implementation
 ├── interfaces/     # Controllers, DTOs, API endpoints
@@ -48,17 +48,19 @@ src/
 
 ## Technology Stack
 
-- **Backend Framework**: [NestJS](https://nestjs.com/)
-- **Database**: [MongoDB](https://www.mongodb.com/)
+- **Backend Framework**: [NestJS](https://nestjs.com/) 10.x
+- **Database**: [MongoDB](https://www.mongodb.com/) 7.x with Mongoose
 - **Authentication**: JWT (JSON Web Token)
 - **API Documentation**: Swagger/OpenAPI
 - **Testing**: Jest
-- **Deployment**: AWS (backend), Vercel (frontend)
+- **PDF Generation**: Puppeteer
+- **Logging**: Winston
+- **Validation**: class-validator and class-transformer
 
 ## Prerequisites
 
-- Node.js (>= 16.x)
-- MongoDB (>= 5.x)
+- Node.js (>= 18.x)
+- MongoDB (>= 7.x)
 - npm or yarn
 
 ## Installation
@@ -109,6 +111,10 @@ MONGODB_URI=mongodb://localhost:27017/measura
 # JWT Authentication
 JWT_SECRET=your_jwt_secret
 JWT_EXPIRATION=1d
+
+# Logging
+LOG_LEVEL=info
+LOG_FORMAT=json
 
 # Integration APIs (optional)
 JIRA_API_URL=

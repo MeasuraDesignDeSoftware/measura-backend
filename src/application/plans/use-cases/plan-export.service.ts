@@ -38,6 +38,7 @@ import { Objective } from '@domain/objectives/entities/objective.entity';
 import { Question } from '@domain/questions/entities/question.entity';
 import { Metric } from '@domain/metrics/entities/metric.entity';
 import * as mongoose from 'mongoose';
+import * as puppeteer from 'puppeteer';
 
 export interface CompletePlanData {
   plan: PlanDto;
@@ -522,5 +523,293 @@ export class PlanExportService {
         throw error;
       }
     }
+  }
+
+  async exportAsPdf(planId: string): Promise<Buffer> {
+    const data = await this.getCompletePlanData(planId);
+
+    const html = this.generatePdfHtml(data);
+
+    try {
+      const browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      });
+
+      const page = await browser.newPage();
+      await page.setContent(html, { waitUntil: 'networkidle0' });
+
+      const pdfBuffer = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: {
+          top: '20mm',
+          right: '20mm',
+          bottom: '20mm',
+          left: '20mm',
+        },
+        displayHeaderFooter: true,
+        headerTemplate:
+          '<div style="font-size: 10px; margin-left: 20px; margin-right: 20px; width: 100%; text-align: center;"><span class="title"></span></div>',
+        footerTemplate:
+          '<div style="font-size: 10px; margin-left: 20px; margin-right: 20px; width: 100%; text-align: center;"><span class="pageNumber"></span> / <span class="totalPages"></span></div>',
+      });
+
+      await browser.close();
+      return Buffer.from(pdfBuffer);
+    } catch (error) {
+      this.logger.error(
+        `Error generating PDF: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      throw new InternalServerErrorException('Failed to generate PDF');
+    }
+  }
+
+  private generatePdfHtml(data: CompletePlanData): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              line-height: 1.6;
+              color: #333;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 30px;
+              padding-bottom: 20px;
+              border-bottom: 2px solid #eee;
+            }
+            .section {
+              margin-bottom: 30px;
+            }
+            .section-title {
+              color: #2c3e50;
+              font-size: 18px;
+              font-weight: bold;
+              margin-bottom: 15px;
+              padding-bottom: 5px;
+              border-bottom: 1px solid #eee;
+            }
+            .info-grid {
+              display: grid;
+              grid-template-columns: 120px 1fr;
+              gap: 10px;
+              margin-bottom: 20px;
+            }
+            .info-label {
+              font-weight: bold;
+              color: #666;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 20px;
+            }
+            th, td {
+              border: 1px solid #ddd;
+              padding: 8px;
+              text-align: left;
+            }
+            th {
+              background-color: #f5f5f5;
+              font-weight: bold;
+            }
+            tr:nth-child(even) {
+              background-color: #f9f9f9;
+            }
+            .status {
+              padding: 4px 8px;
+              border-radius: 4px;
+              font-size: 12px;
+              font-weight: bold;
+            }
+            .status-draft { background-color: #f0f0f0; color: #666; }
+            .status-active { background-color: #e3f2fd; color: #1976d2; }
+            .status-completed { background-color: #e8f5e9; color: #2e7d32; }
+            .status-cancelled { background-color: #ffebee; color: #c62828; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>${this.escapeHtml(data.plan.name)}</h1>
+            <p>${this.escapeHtml(data.plan.description)}</p>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Plan Details</div>
+            <div class="info-grid">
+              <div class="info-label">Status:</div>
+              <div><span class="status status-${data.plan.status.toLowerCase()}">${data.plan.status}</span></div>
+              
+              <div class="info-label">Start Date:</div>
+              <div>${data.plan.startDate ? new Date(data.plan.startDate).toLocaleDateString() : 'Not set'}</div>
+              
+              <div class="info-label">End Date:</div>
+              <div>${data.plan.endDate ? new Date(data.plan.endDate).toLocaleDateString() : 'Not set'}</div>
+              
+              ${
+                data.plan.approvedDate
+                  ? `
+                <div class="info-label">Approved Date:</div>
+                <div>${new Date(data.plan.approvedDate).toLocaleDateString()}</div>
+              `
+                  : ''
+              }
+            </div>
+          </div>
+
+          ${
+            data.goals.length > 0
+              ? `
+            <div class="section">
+              <div class="section-title">Goals</div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${data.goals
+                    .map(
+                      (goal) => `
+                    <tr>
+                      <td>${this.escapeHtml(goal.name)}</td>
+                      <td>${this.escapeHtml(goal.description || '')}</td>
+                      <td><span class="status status-${goal.status.toLowerCase()}">${goal.status}</span></td>
+                    </tr>
+                  `,
+                    )
+                    .join('')}
+                </tbody>
+              </table>
+            </div>
+          `
+              : ''
+          }
+
+          ${
+            data.objectives.length > 0
+              ? `
+            <div class="section">
+              <div class="section-title">Objectives</div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${data.objectives
+                    .map(
+                      (objective) => `
+                    <tr>
+                      <td>${this.escapeHtml(objective.name)}</td>
+                      <td>${this.escapeHtml(objective.description || '')}</td>
+                      <td><span class="status status-${objective.status.toLowerCase()}">${objective.status}</span></td>
+                    </tr>
+                  `,
+                    )
+                    .join('')}
+                </tbody>
+              </table>
+            </div>
+          `
+              : ''
+          }
+
+          ${
+            data.questions.length > 0
+              ? `
+            <div class="section">
+              <div class="section-title">Questions</div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Question</th>
+                    <th>Description</th>
+                    <th>Priority</th>
+                    <th>Related Goal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${data.questions
+                    .map((question) => {
+                      const relatedGoal = data.goals.find(
+                        (g) => g.id === question.goalId,
+                      );
+                      return `
+                      <tr>
+                        <td>${this.escapeHtml(question.text)}</td>
+                        <td>${this.escapeHtml(question.description || '')}</td>
+                        <td>${question.priority}</td>
+                        <td>${relatedGoal ? this.escapeHtml(relatedGoal.name) : ''}</td>
+                      </tr>
+                    `;
+                    })
+                    .join('')}
+                </tbody>
+              </table>
+            </div>
+          `
+              : ''
+          }
+
+          ${
+            data.metrics.length > 0
+              ? `
+            <div class="section">
+              <div class="section-title">Metrics</div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Type</th>
+                    <th>Related Question</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${data.metrics
+                    .map((metric) => {
+                      const relatedQuestion = data.questions.find(
+                        (q) => q.id === metric.questionId,
+                      );
+                      return `
+                      <tr>
+                        <td>${this.escapeHtml(metric.name)}</td>
+                        <td>${this.escapeHtml(metric.description || '')}</td>
+                        <td>${metric.type}</td>
+                        <td>${relatedQuestion ? this.escapeHtml(relatedQuestion.text) : ''}</td>
+                      </tr>
+                    `;
+                    })
+                    .join('')}
+                </tbody>
+              </table>
+            </div>
+          `
+              : ''
+          }
+        </body>
+      </html>
+    `;
+  }
+
+  private escapeHtml(unsafe: string): string {
+    return unsafe
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
   }
 }

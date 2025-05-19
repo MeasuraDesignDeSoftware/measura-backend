@@ -95,6 +95,25 @@ export class PlanExportController {
     }
   }
 
+  @Get(':id/pdf')
+  @ApiOperation({ summary: 'Export a plan as PDF' })
+  @ApiParam({ name: 'id', description: 'Plan ID' })
+  @ApiResponse({ status: 200, description: 'Plan exported successfully' })
+  @ApiResponse({ status: 404, description: 'Plan not found' })
+  @ApiResponse({ status: 400, description: 'Invalid request' })
+  @Header('Content-Type', 'application/pdf')
+  @Header('Content-Disposition', 'attachment; filename="plan.pdf"')
+  async exportAsPdf(
+    @Param('id', ParseMongoIdPipe) id: string,
+  ): Promise<StreamableFile> {
+    try {
+      const pdfBuffer = await this.planExportService.exportAsPdf(id);
+      return new StreamableFile(pdfBuffer);
+    } catch (error) {
+      return this.handleExportError(error, 'exporting plan as PDF');
+    }
+  }
+
   @Post('import/json')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Import a plan from JSON' })
