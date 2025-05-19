@@ -25,6 +25,9 @@ export class Password {
    * @returns New Password instance with the provided hashed value
    */
   static fromHashed(hashedValue: string): Password {
+    if (!/^\$2[aby]?\$\d{2}\$[./A-Za-z0-9]{53}$/.test(hashedValue)) {
+      throw new Error('Invalid bcrypt hash supplied');
+    }
     return new Password(hashedValue);
   }
 

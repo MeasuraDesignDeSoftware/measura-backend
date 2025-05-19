@@ -22,8 +22,15 @@ export interface IUserRepository {
     resetToken: string,
     resetTokenExpires: Date,
   ): Promise<void>;
+  clearResetToken(userId: string): Promise<void>;
   findByResetToken(resetToken: string): Promise<User | null>;
+  findAllWithResetTokens(): Promise<User[]>;
   findByVerificationToken(token: string): Promise<User | null>;
-  setVerificationToken(userId: string, token: string): Promise<void>;
+  findAllWithVerificationTokens(): Promise<User[]>;
+  setVerificationToken(
+    userId: string,
+    token: string,
+    tokenExpires: Date,
+  ): Promise<void>;
   markEmailAsVerified(userId: string): Promise<void>;
 }

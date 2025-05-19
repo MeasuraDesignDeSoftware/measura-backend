@@ -7,7 +7,7 @@ import { AuthModule } from './auth.module';
 import { QuestionsModule } from './questions.module';
 import { MetricsModule } from './metrics.module';
 import { GQMModule } from './gqm.module';
-import { ObjectivesModule } from './objectives.module';
+import { RootObjectivesModule } from './objectives.module';
 import { PlansModule } from './plans.module';
 import { GQMControllerModule } from './interfaces/api/controllers/gqm/gqm.module';
 import { MetricsControllerModule } from './interfaces/api/controllers/metrics/metrics.module';
@@ -35,7 +35,7 @@ import { winstonConfig } from '@shared/config/winston.config';
     QuestionsModule,
     MetricsModule,
     GQMModule,
-    ObjectivesModule,
+    RootObjectivesModule,
     PlansModule,
     GQMControllerModule,
     MetricsControllerModule,

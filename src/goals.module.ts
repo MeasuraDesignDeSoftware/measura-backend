@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, Logger } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Goal, GoalSchema } from '@domain/goals/entities/goal.entity';
 import { GoalController } from '@interfaces/api/controllers/goals/goal.controller';
@@ -13,6 +13,7 @@ import { GOAL_REPOSITORY } from '@domain/goals/interfaces/goal.repository.interf
   controllers: [GoalController],
   providers: [
     GoalService,
+    Logger,
     {
       provide: GOAL_REPOSITORY,
       useClass: GoalRepository,

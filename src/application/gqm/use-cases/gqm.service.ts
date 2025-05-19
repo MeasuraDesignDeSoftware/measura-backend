@@ -22,6 +22,7 @@ import { Metric } from '@domain/metrics/entities/metric.entity';
 import { GoalDto } from '@domain/goals/dtos/goal.dto';
 import { QuestionDto } from '@domain/questions/dtos/question.dto';
 import { MetricDto } from '@domain/metrics/dtos/metric.dto';
+import { Types } from 'mongoose';
 
 export interface GQMTreeNode {
   goal: GoalDto;
@@ -42,8 +43,14 @@ export class GQMService {
     private readonly metricRepository: IMetricRepository,
   ) {}
 
-  // Validate if a goal exists
+  private assertValidObjectId(id: string, label: string): void {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException(`Invalid ${label} ID format: ${id}`);
+    }
+  }
+
   async validateGoal(goalId: string): Promise<Goal> {
+    this.assertValidObjectId(goalId, 'goal');
     const goal = await this.goalRepository.findById(goalId);
     if (!goal) {
       throw new NotFoundException(`Goal with ID ${goalId} not found`);
@@ -51,8 +58,8 @@ export class GQMService {
     return goal;
   }
 
-  // Validate if a question exists
   async validateQuestion(questionId: string): Promise<Question> {
+    this.assertValidObjectId(questionId, 'question');
     const question = await this.questionRepository.findById(questionId);
     if (!question) {
       throw new NotFoundException(`Question with ID ${questionId} not found`);
@@ -60,8 +67,8 @@ export class GQMService {
     return question;
   }
 
-  // Validate if a metric exists
   async validateMetric(metricId: string): Promise<Metric> {
+    this.assertValidObjectId(metricId, 'metric');
     const metric = await this.metricRepository.findById(metricId);
     if (!metric) {
       throw new NotFoundException(`Metric with ID ${metricId} not found`);
@@ -69,20 +76,43 @@ export class GQMService {
     return metric;
   }
 
-  // Validate the GQM hierarchy for a new question
-  async validateQuestionHierarchy(goalId: string): Promise<void> {
-    await this.validateGoal(goalId);
-    // Add any additional validation rules here
+  async validateQuestionHierarchy(
+    goalId: string,
+    questionId: string,
+  ): Promise<void> {
+    const [goal, question] = await Promise.all([
+      this.validateGoal(goalId),
+      this.validateQuestion(questionId),
+    ]);
+
+    if (question.goalId.toString() !== goal._id.toString()) {
+      throw new BadRequestException(
+        `Question ${questionId} does not belong to goal ${goalId}`,
+      );
+    }
   }
 
-  // Validate the GQM hierarchy for a new metric
-  async validateMetricHierarchy(questionId: string): Promise<void> {
-    const question = await this.validateQuestion(questionId);
-    await this.validateGoal(question.goalId.toString());
-    // Add any additional validation rules here
+  async validateMetricHierarchy(
+    questionId: string,
+    metricId: string,
+  ): Promise<void> {
+    const [question, metric] = await Promise.all([
+      this.validateQuestion(questionId),
+      this.validateMetric(metricId),
+    ]);
+
+    if (metric.questionId.toString() !== question._id.toString()) {
+      throw new BadRequestException(
+        `Metric ${metricId} does not belong to question ${questionId}`,
+      );
+    }
+
+    await this.validateQuestionHierarchy(
+      question.goalId.toString(),
+      question._id.toString(),
+    );
   }
 
-  // Get the complete GQM hierarchy for a goal
   async getGQMTree(goalId: string): Promise<GQMTreeNode> {
     const goal = await this.validateGoal(goalId);
     const questions = await this.questionRepository.findByGoalId(goalId);
@@ -105,8 +135,8 @@ export class GQMService {
     };
   }
 
-  // Get all GQM trees for a user
   async getAllGQMTrees(userId: string): Promise<GQMTreeNode[]> {
+    this.assertValidObjectId(userId, 'user');
     const goals = await this.goalRepository.findByCreatedBy(userId);
 
     const gqmTreesPromises = goals.map((goal) =>
@@ -115,8 +145,8 @@ export class GQMService {
     return Promise.all(gqmTreesPromises);
   }
 
-  // Check if removing a question would orphan metrics
   async checkQuestionDependencies(questionId: string): Promise<void> {
+    this.assertValidObjectId(questionId, 'question');
     const metrics = await this.metricRepository.findByQuestionId(questionId);
     if (metrics.length > 0) {
       throw new BadRequestException(
@@ -125,8 +155,8 @@ export class GQMService {
     }
   }
 
-  // Check if removing a goal would orphan questions
   async checkGoalDependencies(goalId: string): Promise<void> {
+    this.assertValidObjectId(goalId, 'goal');
     const questions = await this.questionRepository.findByGoalId(goalId);
     if (questions.length > 0) {
       throw new BadRequestException(

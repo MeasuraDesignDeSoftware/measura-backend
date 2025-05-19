@@ -22,7 +22,7 @@ import { UserRole } from '@domain/users/entities/user.entity';
 import { CreateUserDto, UpdateUserDto } from '@domain/users/dtos';
 import { UserService } from '@application/users/use-cases/user.service';
 
-@ApiTags('users')
+@ApiTags('Users')
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()

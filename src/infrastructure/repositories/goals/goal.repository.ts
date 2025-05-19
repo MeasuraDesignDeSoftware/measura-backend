@@ -1,13 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Goal, GoalDocument } from '../../../domain/goals/entities/goal.entity';
-import { IGoalRepository } from '../../../domain/goals/interfaces/goal.repository.interface';
+import { Goal, GoalDocument } from '@domain/goals/entities/goal.entity';
+import { IGoalRepository } from '@domain/goals/interfaces/goal.repository.interface';
 
 @Injectable()
 export class GoalRepository implements IGoalRepository {
   constructor(
     @InjectModel(Goal.name) private readonly goalModel: Model<GoalDocument>,
+    private readonly logger: Logger,
   ) {}
 
   async create(goal: Partial<Goal>): Promise<Goal> {
@@ -20,8 +21,21 @@ export class GoalRepository implements IGoalRepository {
   }
 
   async findByIds(ids: string[]): Promise<Goal[]> {
-    // Convert string IDs to ObjectIds for MongoDB query
-    const objectIds = ids.map((id) => new Types.ObjectId(id));
+    const objectIds = ids
+      .map((id) => {
+        try {
+          return new Types.ObjectId(id);
+        } catch {
+          this.logger.warn(`Invalid ObjectId format: ${id}`);
+          return null;
+        }
+      })
+      .filter((id): id is Types.ObjectId => id !== null);
+
+    if (objectIds.length === 0) {
+      return [];
+    }
+
     return this.goalModel.find({ _id: { $in: objectIds } }).exec();
   }
 
@@ -34,7 +48,9 @@ export class GoalRepository implements IGoalRepository {
   }
 
   async delete(id: string): Promise<boolean> {
-    const result = await this.goalModel.deleteOne({ _id: id }).exec();
+    const result = await this.goalModel
+      .deleteOne({ _id: new Types.ObjectId(id) })
+      .exec();
     return result.deletedCount > 0;
   }
 

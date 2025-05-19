@@ -11,7 +11,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { MetricType, MetricUnit } from '../entities/metric.entity';
-
+import { Type } from 'class-transformer';
 export class CreateMetricDto {
   @ApiProperty({
     description: 'The name of the metric',
@@ -84,6 +84,7 @@ export class CreateMetricDto {
     required: false,
   })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   targetValue?: number;
 

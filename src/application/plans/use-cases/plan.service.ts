@@ -25,6 +25,34 @@ import { PlanDto } from '@domain/plans/dtos/plan.dto';
 
 @Injectable()
 export class PlanService {
+  private static readonly ALLOWED_TRANSITIONS: Record<
+    PlanStatus,
+    PlanStatus[]
+  > = {
+    [PlanStatus.DRAFT]: [
+      PlanStatus.REVIEW,
+      PlanStatus.APPROVED,
+      PlanStatus.ARCHIVED,
+    ],
+    [PlanStatus.REVIEW]: [
+      PlanStatus.DRAFT,
+      PlanStatus.APPROVED,
+      PlanStatus.ARCHIVED,
+    ],
+    [PlanStatus.APPROVED]: [
+      PlanStatus.ACTIVE,
+      PlanStatus.ARCHIVED,
+      PlanStatus.DRAFT,
+    ],
+    [PlanStatus.ACTIVE]: [
+      PlanStatus.COMPLETED,
+      PlanStatus.ARCHIVED,
+      PlanStatus.DRAFT,
+    ],
+    [PlanStatus.COMPLETED]: [PlanStatus.ARCHIVED, PlanStatus.ACTIVE],
+    [PlanStatus.ARCHIVED]: [PlanStatus.DRAFT],
+  };
+
   constructor(
     @Inject(PLAN_REPOSITORY)
     private readonly planRepository: IPlanRepository,
@@ -34,22 +62,37 @@ export class PlanService {
     private readonly objectiveRepository: IObjectiveRepository,
   ) {}
 
-  // Create a new plan
   async createPlan(
     createPlanDto: CreatePlanDto,
     userId: string,
   ): Promise<PlanDto> {
-    // Validate goals and objectives exist
     await this.validateGoalsExist(createPlanDto.goalIds);
     await this.validateObjectivesExist(createPlanDto.objectiveIds);
+
+    const status =
+      createPlanDto.status !== undefined
+        ? createPlanDto.status
+        : PlanStatus.DRAFT;
+
+    if (
+      (status === PlanStatus.APPROVED || status === PlanStatus.ACTIVE) &&
+      !createPlanDto.approvedBy
+    ) {
+      throw new BadRequestException(
+        `Plans with ${status} status must include an approvedBy field`,
+      );
+    }
+    if (createPlanDto.approvedBy) {
+      this.validateApprovedByFormat(createPlanDto.approvedBy);
+    }
 
     const plan = new Plan(
       createPlanDto.name,
       createPlanDto.description,
-      createPlanDto.goalIds.map((id) => new Types.ObjectId(id)),
-      createPlanDto.objectiveIds.map((id) => new Types.ObjectId(id)),
+      (createPlanDto.goalIds ?? []).map((id) => new Types.ObjectId(id)),
+      (createPlanDto.objectiveIds ?? []).map((id) => new Types.ObjectId(id)),
       new Types.ObjectId(userId),
-      createPlanDto.status || PlanStatus.DRAFT,
+      status,
       createPlanDto.startDate,
       createPlanDto.endDate,
       createPlanDto.organizationId
@@ -57,11 +100,20 @@ export class PlanService {
         : undefined,
     );
 
+    if (
+      plan.status === PlanStatus.APPROVED ||
+      plan.status === PlanStatus.ACTIVE
+    ) {
+      plan.approvedBy = createPlanDto.approvedBy
+        ? new Types.ObjectId(createPlanDto.approvedBy)
+        : undefined;
+      plan.approvedDate = createPlanDto.approvedDate || new Date();
+    }
+
     const createdPlan = await this.planRepository.create(plan);
     return PlanDto.fromEntity(createdPlan);
   }
 
-  // Get plan by ID
   async getPlanById(id: string): Promise<PlanDto> {
     const plan = await this.planRepository.findById(id);
     if (!plan) {
@@ -70,108 +122,145 @@ export class PlanService {
     return PlanDto.fromEntity(plan);
   }
 
-  // Get plans by user ID
   async getPlansByUserId(userId: string): Promise<PlanDto[]> {
     const plans = await this.planRepository.findByCreatedBy(userId);
     return plans.map((plan) => PlanDto.fromEntity(plan));
   }
 
-  // Get plans by goal ID
   async getPlansByGoalId(goalId: string): Promise<PlanDto[]> {
     const plans = await this.planRepository.findByGoalId(goalId);
     return plans.map((plan) => PlanDto.fromEntity(plan));
   }
 
-  // Get plans by objective ID
   async getPlansByObjectiveId(objectiveId: string): Promise<PlanDto[]> {
     const plans = await this.planRepository.findByObjectiveId(objectiveId);
     return plans.map((plan) => PlanDto.fromEntity(plan));
   }
 
-  // Get plans by organization ID
   async getPlansByOrganizationId(organizationId: string): Promise<PlanDto[]> {
     const plans =
       await this.planRepository.findByOrganizationId(organizationId);
     return plans.map((plan) => PlanDto.fromEntity(plan));
   }
 
-  // Update a plan
   async updatePlan(id: string, updatePlanDto: UpdatePlanDto): Promise<PlanDto> {
     const existingPlan = await this.planRepository.findById(id);
     if (!existingPlan) {
       throw new NotFoundException(`Plan with ID ${id} not found`);
     }
 
-    // Validate approval status transition
     if (
-      updatePlanDto.status === PlanStatus.APPROVED &&
-      existingPlan.status !== PlanStatus.APPROVED
+      updatePlanDto.status !== undefined &&
+      updatePlanDto.status !== existingPlan.status
     ) {
-      if (!updatePlanDto.approvedBy) {
-        throw new BadRequestException(
-          'Approved plans must have an approvedBy user ID',
-        );
-      }
+      const newStatus: PlanStatus = updatePlanDto.status;
+      this.validateStatusTransition(existingPlan.status, newStatus);
 
-      if (!updatePlanDto.approvedDate) {
-        updatePlanDto.approvedDate = new Date();
+      if (
+        newStatus === PlanStatus.APPROVED ||
+        newStatus === PlanStatus.ACTIVE
+      ) {
+        if (!updatePlanDto.approvedBy) {
+          throw new BadRequestException(
+            `Plans with ${newStatus} status must have an approvedBy user ID`,
+          );
+        }
+
+        this.validateApprovedByFormat(updatePlanDto.approvedBy);
+
+        if (!updatePlanDto.approvedDate) {
+          updatePlanDto.approvedDate = new Date();
+        }
       }
+    } else if (updatePlanDto.approvedBy) {
+      this.validateApprovedByFormat(updatePlanDto.approvedBy);
     }
 
-    // Validate goals and objectives if provided
-    if (updatePlanDto.goalIds) {
+    if (updatePlanDto.goalIds !== undefined) {
       await this.validateGoalsExist(updatePlanDto.goalIds);
     }
 
-    if (updatePlanDto.objectiveIds) {
+    if (updatePlanDto.objectiveIds !== undefined) {
       await this.validateObjectivesExist(updatePlanDto.objectiveIds);
     }
 
-    // Create update object
     const updateData: Partial<Plan> = {
-      ...(updatePlanDto.name && { name: updatePlanDto.name }),
-      ...(updatePlanDto.description && {
-        description: updatePlanDto.description,
-      }),
-      ...(updatePlanDto.status && { status: updatePlanDto.status }),
-      ...(updatePlanDto.startDate && { startDate: updatePlanDto.startDate }),
-      ...(updatePlanDto.endDate && { endDate: updatePlanDto.endDate }),
-      ...(updatePlanDto.goalIds && {
-        goalIds: updatePlanDto.goalIds.map((id) => new Types.ObjectId(id)),
-      }),
-      ...(updatePlanDto.objectiveIds && {
-        objectiveIds: updatePlanDto.objectiveIds.map(
-          (id) => new Types.ObjectId(id),
-        ),
-      }),
-      ...(updatePlanDto.organizationId && {
-        organizationId: new Types.ObjectId(updatePlanDto.organizationId),
-      }),
-      ...(updatePlanDto.approvedBy && {
-        approvedBy: new Types.ObjectId(updatePlanDto.approvedBy),
-      }),
-      ...(updatePlanDto.approvedDate && {
-        approvedDate: updatePlanDto.approvedDate,
-      }),
       updatedAt: new Date(),
     };
 
-    const updatedPlan = await this.planRepository.update(id, updateData);
-    if (!updatedPlan) {
-      throw new NotFoundException(`Plan with ID ${id} not found after update`);
+    if (updatePlanDto.name !== undefined) {
+      updateData.name = updatePlanDto.name;
     }
 
+    if (updatePlanDto.description !== undefined) {
+      updateData.description = updatePlanDto.description;
+    }
+
+    if (updatePlanDto.status !== undefined) {
+      updateData.status = updatePlanDto.status;
+    }
+
+    if (updatePlanDto.startDate !== undefined) {
+      updateData.startDate = updatePlanDto.startDate;
+    }
+
+    if (updatePlanDto.endDate !== undefined) {
+      updateData.endDate = updatePlanDto.endDate;
+    }
+
+    if (updatePlanDto.goalIds !== undefined) {
+      updateData.goalIds = updatePlanDto.goalIds.map(
+        (id) => new Types.ObjectId(id),
+      );
+    }
+
+    if (updatePlanDto.objectiveIds !== undefined) {
+      updateData.objectiveIds = updatePlanDto.objectiveIds.map(
+        (id) => new Types.ObjectId(id),
+      );
+    }
+
+    if (updatePlanDto.organizationId !== undefined) {
+      updateData.organizationId = updatePlanDto.organizationId
+        ? new Types.ObjectId(updatePlanDto.organizationId)
+        : undefined;
+    }
+
+    if (updatePlanDto.approvedBy !== undefined) {
+      updateData.approvedBy = updatePlanDto.approvedBy
+        ? new Types.ObjectId(updatePlanDto.approvedBy)
+        : undefined;
+    }
+
+    if (updatePlanDto.approvedDate !== undefined) {
+      updateData.approvedDate = updatePlanDto.approvedDate;
+    }
+
+    const updatedPlan = await this.planRepository.updateWithVersion(
+      id,
+      updateData,
+      updatePlanDto.version,
+    );
+
+    if (!updatedPlan) {
+      throw new ConflictException(
+        `Plan with ID ${id} has been modified or not found. Please refresh and try again.`,
+      );
+    }
+    if (updatePlanDto.version === undefined) {
+      throw new BadRequestException(
+        'Missing version field – please supply the current document version for optimistic locking',
+      );
+    }
     return PlanDto.fromEntity(updatedPlan);
   }
 
-  // Delete a plan
   async deletePlan(id: string): Promise<boolean> {
     const existingPlan = await this.planRepository.findById(id);
     if (!existingPlan) {
       throw new NotFoundException(`Plan with ID ${id} not found`);
     }
 
-    // Prevent deletion of approved or active plans
     if (
       existingPlan.status === PlanStatus.APPROVED ||
       existingPlan.status === PlanStatus.ACTIVE
@@ -184,7 +273,6 @@ export class PlanService {
     return this.planRepository.delete(id);
   }
 
-  // Create a new version of a plan
   async createNewVersion(id: string): Promise<PlanDto> {
     const existingPlan = await this.planRepository.findById(id);
     if (!existingPlan) {
@@ -195,7 +283,6 @@ export class PlanService {
     return PlanDto.fromEntity(newVersion);
   }
 
-  // Get all versions of a plan
   async getPlanVersions(id: string): Promise<PlanDto[]> {
     const existingPlan = await this.planRepository.findById(id);
     if (!existingPlan) {
@@ -206,34 +293,83 @@ export class PlanService {
     return versions.map((version) => PlanDto.fromEntity(version));
   }
 
-  // Validate that all goals in the list exist
   private async validateGoalsExist(goalIds: string[]): Promise<void> {
-    const goals = await this.goalRepository.findByIds(goalIds);
+    if (goalIds === undefined) {
+      throw new BadRequestException('Goal IDs list cannot be undefined');
+    }
 
-    if (goals.length !== goalIds.length) {
-      const foundGoalIds = goals.map((goal) => goal._id.toString());
-      const missingGoalIds = goalIds.filter((id) => !foundGoalIds.includes(id));
+    if (goalIds.length === 0) {
+      return;
+    }
 
-      throw new BadRequestException(
-        `The following goals do not exist: ${missingGoalIds.join(', ')}`,
-      );
+    for (const goalId of goalIds) {
+      if (!Types.ObjectId.isValid(goalId)) {
+        throw new BadRequestException(`Invalid goal ID format: ${goalId}`);
+      }
+    }
+
+    const uniqueGoalIds = [...new Set(goalIds)];
+    const goals = await this.goalRepository.findByIds(uniqueGoalIds);
+    if (goals.length !== uniqueGoalIds.length) {
+      if (goals.length !== goalIds.length) {
+        const foundGoalIds = goals.map((g) => g._id.toString());
+        const missingGoalIds = goalIds.filter(
+          (id) => !foundGoalIds.includes(id),
+        );
+
+        throw new BadRequestException(
+          `The following goals were not found: ${missingGoalIds.join(', ')}`,
+        );
+      }
     }
   }
 
-  // Validate that all objectives in the list exist
   private async validateObjectivesExist(objectiveIds: string[]): Promise<void> {
+    if (objectiveIds === undefined) {
+      throw new BadRequestException('Objective IDs list cannot be undefined');
+    }
+
+    if (objectiveIds.length === 0) {
+      return;
+    }
+
+    for (const objectiveId of objectiveIds) {
+      if (!Types.ObjectId.isValid(objectiveId)) {
+        throw new BadRequestException(
+          `Invalid objective ID format: ${objectiveId}`,
+        );
+      }
+    }
+
     const objectives = await this.objectiveRepository.findByIds(objectiveIds);
 
     if (objectives.length !== objectiveIds.length) {
-      const foundObjectiveIds = objectives.map((objective) =>
-        objective._id.toString(),
-      );
+      const foundObjectiveIds = objectives.map((o) => o._id.toString());
       const missingObjectiveIds = objectiveIds.filter(
         (id) => !foundObjectiveIds.includes(id),
       );
 
       throw new BadRequestException(
-        `The following objectives do not exist: ${missingObjectiveIds.join(', ')}`,
+        `The following objectives were not found: ${missingObjectiveIds.join(', ')}`,
+      );
+    }
+  }
+
+  private validateStatusTransition(
+    currentStatus: PlanStatus,
+    newStatus: PlanStatus,
+  ): void {
+    if (!PlanService.ALLOWED_TRANSITIONS[currentStatus].includes(newStatus)) {
+      throw new ConflictException(
+        `Cannot transition from ${currentStatus} to ${newStatus}`,
+      );
+    }
+  }
+
+  private validateApprovedByFormat(approvedBy: string): void {
+    if (!Types.ObjectId.isValid(approvedBy)) {
+      throw new BadRequestException(
+        `Invalid approvedBy ID format: ${approvedBy}`,
       );
     }
   }

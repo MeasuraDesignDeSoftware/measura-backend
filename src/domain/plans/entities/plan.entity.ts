@@ -38,6 +38,8 @@ export class Plan {
     organizationId?: Types.ObjectId,
     id?: Types.ObjectId,
     version: number = 1,
+    createdAt?: Date,
+    updatedAt?: Date,
   ) {
     this._id = id || new Types.ObjectId();
     this.name = name;
@@ -49,8 +51,8 @@ export class Plan {
     this.endDate = endDate;
     this.organizationId = organizationId;
     this.createdBy = createdBy;
-    this.createdAt = new Date();
-    this.updatedAt = new Date();
+    this.createdAt = createdAt ?? new Date();
+    this.updatedAt = updatedAt ?? new Date();
     this.version = version;
   }
 }

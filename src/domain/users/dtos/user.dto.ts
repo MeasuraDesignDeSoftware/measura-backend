@@ -34,8 +34,8 @@ export class UserDto {
     const dto = new UserDto();
     dto.id = user._id ? user._id.toString() : '';
     dto.email = user.email || '';
-    dto.firstName = user.username || ''; // Using username as firstName since it's available
-    dto.lastName = ''; // No lastName in entity, setting default empty value
+    dto.firstName = user.firstName || '';
+    dto.lastName = user.lastName || '';
     dto.role = user.role || '';
     dto.isEmailVerified = !!user.isEmailVerified;
     dto.createdAt = user.createdAt || new Date();

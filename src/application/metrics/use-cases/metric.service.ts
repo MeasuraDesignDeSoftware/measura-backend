@@ -7,7 +7,6 @@ import {
 import { CreateMetricDto } from '@domain/metrics/dtos/create-metric.dto';
 import { UpdateMetricDto } from '@domain/metrics/dtos/update-metric.dto';
 import { MetricDto } from '@domain/metrics/dtos/metric.dto';
-import { Metric } from '@domain/metrics/entities/metric.entity';
 
 @Injectable()
 export class MetricService {
@@ -52,11 +51,8 @@ export class MetricService {
   }
 
   async getMetricsByIds(ids: string[]): Promise<MetricDto[]> {
-    const promises = ids.map((id) => this.metricRepository.findById(id));
-    const results = await Promise.all(promises);
-    return results
-      .filter((metric): metric is Metric => metric !== null)
-      .map((metric) => MetricDto.fromEntity(metric));
+    const metrics = await this.metricRepository.findByIds(ids);
+    return metrics.map((metric) => MetricDto.fromEntity(metric));
   }
 
   async updateMetric(

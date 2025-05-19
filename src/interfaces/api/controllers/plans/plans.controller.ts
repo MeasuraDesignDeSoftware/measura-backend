@@ -12,6 +12,8 @@ import {
   InternalServerErrorException,
   BadRequestException,
   ConflictException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -27,6 +29,12 @@ import { PlanService } from '@application/plans/use-cases/plan.service';
 import { CreatePlanDto } from '@domain/plans/dtos/create-plan.dto';
 import { UpdatePlanDto } from '@domain/plans/dtos/update-plan.dto';
 import { PlanDto } from '@domain/plans/dtos/plan.dto';
+import { ParseMongoIdPipe } from '@shared/utils/pipes/parse-mongo-id.pipe';
+
+interface RequestUser {
+  id: string;
+  [key: string]: any;
+}
 
 @ApiTags('Plans')
 @Controller('plans')
@@ -43,14 +51,18 @@ export class PlansController {
     type: PlanDto,
   })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
+  @ApiResponse({ status: 409, description: 'Conflict with existing data' })
   async createPlan(
     @Body() createPlanDto: CreatePlanDto,
-    @GetUser() user: any,
+    @GetUser() user: RequestUser,
   ): Promise<PlanDto> {
     try {
       return await this.planService.createPlan(createPlanDto, user.id);
     } catch (error) {
-      if (error instanceof BadRequestException) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof ConflictException
+      ) {
         throw error;
       }
       throw new InternalServerErrorException('Failed to create plan');
@@ -80,22 +92,29 @@ export class PlansController {
     type: [PlanDto],
   })
   async getPlans(
-    @Query('goalId') goalId?: string,
-    @Query('objectiveId') objectiveId?: string,
-    @Query('organizationId') organizationId?: string,
-    @GetUser() user?: any,
+    @GetUser() user: RequestUser,
+    @Query('goalId', new ParseMongoIdPipe()) goalId?: string,
+    @Query('objectiveId', new ParseMongoIdPipe()) objectiveId?: string,
+    @Query('organizationId', new ParseMongoIdPipe()) organizationId?: string,
   ): Promise<PlanDto[]> {
     try {
       if (goalId) {
         return await this.planService.getPlansByGoalId(goalId);
-      } else if (objectiveId) {
-        return await this.planService.getPlansByObjectiveId(objectiveId);
-      } else if (organizationId) {
-        return await this.planService.getPlansByOrganizationId(organizationId);
-      } else {
-        return await this.planService.getPlansByUserId(user.id);
       }
+
+      if (objectiveId) {
+        return await this.planService.getPlansByObjectiveId(objectiveId);
+      }
+
+      if (organizationId) {
+        return await this.planService.getPlansByOrganizationId(organizationId);
+      }
+
+      return await this.planService.getPlansByUserId(user.id);
     } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to retrieve plans');
     }
   }
@@ -109,7 +128,9 @@ export class PlansController {
     type: PlanDto,
   })
   @ApiResponse({ status: 404, description: 'Plan not found' })
-  async getPlanById(@Param('id') id: string): Promise<PlanDto> {
+  async getPlanById(
+    @Param('id', ParseMongoIdPipe) id: string,
+  ): Promise<PlanDto> {
     try {
       return await this.planService.getPlanById(id);
     } catch (error) {
@@ -129,7 +150,9 @@ export class PlansController {
     type: [PlanDto],
   })
   @ApiResponse({ status: 404, description: 'Plan not found' })
-  async getPlanVersions(@Param('id') id: string): Promise<PlanDto[]> {
+  async getPlanVersions(
+    @Param('id', ParseMongoIdPipe) id: string,
+  ): Promise<PlanDto[]> {
     try {
       return await this.planService.getPlanVersions(id);
     } catch (error) {
@@ -151,11 +174,17 @@ export class PlansController {
     type: PlanDto,
   })
   @ApiResponse({ status: 404, description: 'Plan not found' })
-  async createNewVersion(@Param('id') id: string): Promise<PlanDto> {
+  @ApiResponse({ status: 409, description: 'Conflict with existing data' })
+  async createNewVersion(
+    @Param('id', ParseMongoIdPipe) id: string,
+  ): Promise<PlanDto> {
     try {
       return await this.planService.createNewVersion(id);
     } catch (error) {
-      if (error instanceof NotFoundException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ConflictException
+      ) {
         throw error;
       }
       throw new InternalServerErrorException(
@@ -174,8 +203,9 @@ export class PlansController {
   })
   @ApiResponse({ status: 404, description: 'Plan not found' })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
+  @ApiResponse({ status: 409, description: 'Conflict with existing data' })
   async updatePlan(
-    @Param('id') id: string,
+    @Param('id', ParseMongoIdPipe) id: string,
     @Body() updatePlanDto: UpdatePlanDto,
   ): Promise<PlanDto> {
     try {
@@ -183,7 +213,8 @@ export class PlansController {
     } catch (error) {
       if (
         error instanceof NotFoundException ||
-        error instanceof BadRequestException
+        error instanceof BadRequestException ||
+        error instanceof ConflictException
       ) {
         throw error;
       }
@@ -192,18 +223,19 @@ export class PlansController {
   }
 
   @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a plan' })
   @ApiParam({ name: 'id', description: 'Plan ID' })
-  @ApiResponse({ status: 200, description: 'Plan deleted successfully' })
+  @ApiResponse({ status: 204, description: 'Plan deleted successfully' })
   @ApiResponse({ status: 404, description: 'Plan not found' })
   @ApiResponse({
     status: 409,
     description: 'Cannot delete approved or active plan',
   })
-  async deletePlan(@Param('id') id: string): Promise<{ success: boolean }> {
+  async deletePlan(@Param('id', ParseMongoIdPipe) id: string): Promise<void> {
     try {
-      const result = await this.planService.deletePlan(id);
-      return { success: result };
+      await this.planService.deletePlan(id);
+      return;
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;

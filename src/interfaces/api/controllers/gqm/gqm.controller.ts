@@ -13,10 +13,9 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '@interfaces/api/guards/jwt-auth.guard';
-import { GetUser } from '@interfaces/api/decorators/get-user.decorator';
+import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
+import { GetUser } from '../../decorators/get-user.decorator';
 import { GQMService } from '@application/gqm/use-cases/gqm.service';
-// import { UserDto } from '@domain/users/dtos/user.dto';
 
 interface RequestUser {
   id: string;
@@ -55,8 +54,11 @@ export class GQMController {
   async getAllGQMTrees(@GetUser() user: RequestUser) {
     try {
       return await this.gqmService.getAllGQMTrees(user.id);
-    } catch (_) {
-      throw new InternalServerErrorException('Failed to retrieve GQM trees');
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Failed to retrieve GQM trees',
+        error,
+      );
     }
   }
 }

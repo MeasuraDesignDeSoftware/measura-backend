@@ -7,16 +7,16 @@ import { PlanExportService } from '@application/plans/use-cases/plan-export.serv
 import { PlanSchema } from '@infrastructure/database/mongodb/schemas/plan.schema';
 import { PlanRepository } from '@infrastructure/database/mongodb/repositories/plan.repository';
 import { PLAN_REPOSITORY } from '@domain/plans/interfaces/plan.repository.interface';
-import { GoalsModule } from '../../../../goals.module';
-import { ObjectivesModule } from '../../../../objectives.module';
-import { QuestionsModule } from '../../../../questions.module';
-import { MetricsModule } from '../../../../metrics.module';
+import { GoalsModule } from '@app/goals.module';
+import { RootObjectivesModule } from '@app/objectives.module';
+import { QuestionsModule } from '@app/questions.module';
+import { MetricsModule } from '@app/metrics.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: 'Plan', schema: PlanSchema }]),
     GoalsModule,
-    ObjectivesModule,
+    RootObjectivesModule,
     QuestionsModule,
     MetricsModule,
   ],

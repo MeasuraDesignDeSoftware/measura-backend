@@ -9,9 +9,11 @@ import {
   ArrayMinSize,
   IsDate,
   ValidateIf,
+  IsDefined,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PlanStatus } from '../entities/plan.entity';
+import { IsAfterDate } from '@app/shared/utils/validators/date-range.validator';
 
 export class CreatePlanDto {
   @ApiProperty({
@@ -77,6 +79,7 @@ export class CreatePlanDto {
   @IsDate()
   @Type(() => Date)
   @ValidateIf((o: CreatePlanDto) => o.startDate != null)
+  @IsAfterDate('startDate', { message: 'End date must be after start date' })
   endDate?: Date;
 
   @ApiProperty({
@@ -84,7 +87,36 @@ export class CreatePlanDto {
     example: '507f1f77bcf86cd799439015',
     required: false,
   })
-  @IsMongoId()
   @IsOptional()
+  @IsMongoId()
   organizationId?: string;
+
+  @ApiProperty({
+    description:
+      'User ID who approved the plan (required for APPROVED or ACTIVE status)',
+    example: '507f1f77bcf86cd799439016',
+    required: false,
+  })
+  @ValidateIf(
+    (o: CreatePlanDto) =>
+      o.status === PlanStatus.APPROVED || o.status === PlanStatus.ACTIVE,
+  )
+  @IsMongoId()
+  @IsDefined({
+    message: 'approvedBy is required when plan is approved or active',
+  })
+  approvedBy?: string;
+
+  @ApiProperty({
+    description: 'Date when the plan was approved',
+    required: false,
+  })
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  @ValidateIf(
+    (o: CreatePlanDto) =>
+      o.status === PlanStatus.APPROVED || o.status === PlanStatus.ACTIVE,
+  )
+  approvedDate?: Date;
 }

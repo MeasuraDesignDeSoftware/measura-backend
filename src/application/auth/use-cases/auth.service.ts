@@ -4,8 +4,8 @@ import {
   BadRequestException,
   Inject,
   ConflictException,
-  NotFoundException,
   Logger,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -31,7 +31,6 @@ import { FirebaseAdminService } from '@infrastructure/external-services/firebase
 import { EmailService } from '@infrastructure/external-services/email/email.service';
 import * as admin from 'firebase-admin';
 
-// Specific type for Firebase token content we care about
 interface FirebaseAuthUser {
   email: string;
   name?: string;
@@ -91,10 +90,10 @@ export class AuthService {
     }
 
     const hashedPassword = await bcrypt.hash(registerDto.password, 10);
-    // Generate a verification token directly as a string
     const verificationToken = String(uuidv4());
+    const hashedVerificationToken = await bcrypt.hash(verificationToken, 10);
+    const verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-    // Create the new user
     const newUser = await this.userRepository.create({
       email: registerDto.email,
       username: registerDto.username,
@@ -105,21 +104,22 @@ export class AuthService {
       isEmailVerified: false,
     });
 
-    // Set verification token and send verification email
     if (newUser && newUser._id) {
       const userId = newUser._id.toString();
-      await this.userRepository.setVerificationToken(userId, verificationToken);
-
-      // Send verification email
+      await this.userRepository.setVerificationToken(
+        userId,
+        hashedVerificationToken,
+        verificationTokenExpires,
+      );
       if (typeof newUser.email === 'string') {
-        const emailSent = await this.emailService.sendVerificationEmail(
-          newUser.email,
-          verificationToken,
-        );
-
-        if (!emailSent) {
-          this.logger.warn(
-            `Failed to send verification email to ${newUser.email}`,
+        try {
+          await this.emailService.sendVerificationEmail(
+            newUser.email,
+            verificationToken,
+          );
+        } catch (error) {
+          this.logger.error(
+            `Failed to send verification email to ${newUser.email}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           );
         }
       }
@@ -132,22 +132,17 @@ export class AuthService {
     firebaseLoginDto: FirebaseLoginDto,
   ): Promise<AuthResponseDto> {
     try {
-      // Get the Firebase token data and extract what we need
       const decodedToken = await this.firebaseAdminService.verifyIdToken(
         firebaseLoginDto.idToken,
       );
 
-      // Extract and validate the email
       const firebaseUser = this.extractFirebaseUserInfo(decodedToken);
-
-      // Look up or create the user
       let user = await this.userRepository.findByProviderAndEmail(
         AuthProvider.GOOGLE,
         firebaseUser.email,
       );
 
       if (!user) {
-        // Create a username from the name or email
         const nameBase = firebaseUser.name || firebaseUser.email.split('@')[0];
         const username = await this.generateUniqueUsername(nameBase);
 
@@ -157,7 +152,7 @@ export class AuthService {
           provider: AuthProvider.GOOGLE,
           role: UserRole.USER,
           isActive: true,
-          isEmailVerified: true, // Email is verified by Google
+          isEmailVerified: true,
         });
       }
 
@@ -170,7 +165,6 @@ export class AuthService {
     }
   }
 
-  // Helper to safely extract user info from Firebase token
   private extractFirebaseUserInfo(
     decodedToken: admin.auth.DecodedIdToken,
   ): FirebaseAuthUser {
@@ -179,7 +173,6 @@ export class AuthService {
       throw new BadRequestException('Email is required for authentication');
     }
 
-    // Get name if available
     let name: string | undefined = undefined;
     if (decodedToken.name && typeof decodedToken.name === 'string') {
       name = decodedToken.name;
@@ -192,26 +185,39 @@ export class AuthService {
     refreshTokenDto: RefreshTokenDto,
   ): Promise<AuthResponseDto> {
     try {
-      // Verify the refresh token
       const payload = await this.jwtService.verifyAsync<{
         sub: string;
         tokenType: string;
       }>(refreshTokenDto.refreshToken, {
         secret: this.configService.get<string>('app.jwt.refreshSecret'),
       });
-
-      // Check if token is refresh token type
       if (payload.tokenType !== 'refresh') {
         throw new UnauthorizedException('Invalid token type');
       }
 
-      // Find user by ID
       const user = await this.userRepository.findById(payload.sub);
       if (!user) {
         throw new UnauthorizedException('User not found');
       }
+      if (!user.refreshToken) {
+        this.logger.warn(
+          `User ${user._id.toString()} attempted refresh with no stored token`,
+        );
+        throw new UnauthorizedException('Invalid refresh token');
+      }
 
-      // Generate new tokens
+      const isTokenValid = await bcrypt.compare(
+        refreshTokenDto.refreshToken,
+        user.refreshToken,
+      );
+
+      if (!isTokenValid) {
+        this.logger.warn(
+          `Invalid refresh token for user ${user._id.toString()}`,
+        );
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
       return this.generateToken(user);
     } catch (error) {
       const errorMessage =
@@ -227,40 +233,43 @@ export class AuthService {
     const user = await this.userRepository.findByEmail(
       passwordResetRequestDto.email,
     );
+
     if (!user) {
-      throw new NotFoundException('User not found');
+      this.logger.debug(
+        `Password reset requested for non-existent email: ${passwordResetRequestDto.email}`,
+      );
+      return;
     }
 
     if (user.provider !== AuthProvider.LOCAL) {
-      throw new BadRequestException(
-        `This account was created using ${user.provider} authentication`,
+      this.logger.debug(
+        `Password reset attempted for non-local account: ${passwordResetRequestDto.email} (${user.provider})`,
       );
+      return;
     }
 
-    // Generate a reset token directly as a string
     const resetToken = String(uuidv4());
-    const resetTokenExpires = new Date();
-    resetTokenExpires.setHours(resetTokenExpires.getHours() + 1); // Token valid for 1 hour
+    const hashedResetToken = await bcrypt.hash(resetToken, 10);
 
-    // Save token to database
+    const resetTokenExpires = new Date();
+    resetTokenExpires.setHours(resetTokenExpires.getHours() + 1);
     if (user._id && typeof user._id.toString === 'function') {
       const userId = user._id.toString();
       await this.userRepository.setResetToken(
         userId,
-        resetToken,
+        hashedResetToken,
         resetTokenExpires,
       );
 
-      // Send password reset email
       if (typeof user.email === 'string') {
-        const emailSent = await this.emailService.sendPasswordResetEmail(
-          user.email,
-          resetToken,
-        );
-
-        if (!emailSent) {
-          this.logger.warn(
-            `Failed to send password reset email to ${user.email}`,
+        try {
+          await this.emailService.sendPasswordResetEmail(
+            user.email,
+            resetToken,
+          );
+        } catch (error) {
+          this.logger.error(
+            `Failed to send password reset email to ${user.email}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           );
         }
       }
@@ -268,42 +277,136 @@ export class AuthService {
   }
 
   async resetPassword(passwordResetDto: PasswordResetDto): Promise<void> {
-    const user = await this.userRepository.findByResetToken(
-      passwordResetDto.token,
-    );
-    if (!user) {
-      throw new UnauthorizedException('Invalid or expired reset token');
+    if (!passwordResetDto.token) {
+      throw new BadRequestException('Reset token is required');
     }
 
-    // Check if token is expired
-    const now = new Date();
-    if (user.resetTokenExpires && user.resetTokenExpires < now) {
-      throw new UnauthorizedException('Reset token has expired');
+    if (passwordResetDto.password !== passwordResetDto.confirmPassword) {
+      throw new BadRequestException('Passwords do not match');
     }
 
-    // Hash new password
-    const hashedPassword = await bcrypt.hash(passwordResetDto.password, 10);
+    try {
+      const users = await this.userRepository.findAllWithResetTokens();
+      if (!users || users.length === 0) {
+        throw new UnauthorizedException('Invalid or expired reset token');
+      }
 
-    // Update user password and clear reset token
-    if (user._id && typeof user._id.toString === 'function') {
-      const userId = user._id.toString();
-      await this.userRepository.update(userId, {
-        password: hashedPassword,
-        resetToken: undefined,
-        resetTokenExpires: undefined,
-      });
+      const now = new Date();
+      let matchedUser: User | null = null;
+
+      for (const user of users) {
+        if (user.resetTokenExpires && user.resetTokenExpires < now) {
+          continue;
+        }
+        if (user.resetToken) {
+          try {
+            const isMatch = await bcrypt.compare(
+              passwordResetDto.token,
+              user.resetToken,
+            );
+            if (isMatch) {
+              matchedUser = user;
+              break;
+            }
+          } catch (error) {
+            this.logger.error(
+              `Error comparing reset tokens: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            );
+          }
+        }
+      }
+
+      if (!matchedUser) {
+        throw new UnauthorizedException('Invalid or expired reset token');
+      }
+
+      const hashedPassword = await bcrypt.hash(passwordResetDto.password, 10);
+
+      if (matchedUser._id && typeof matchedUser._id.toString === 'function') {
+        const userId = matchedUser._id.toString();
+        try {
+          await this.userRepository.update(userId, {
+            password: hashedPassword,
+          });
+
+          await this.userRepository.clearResetToken(userId);
+        } catch (error) {
+          this.logger.error(
+            `Failed to reset password for user ${userId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          );
+          throw new InternalServerErrorException('Failed to reset password');
+        }
+      }
+    } catch (error) {
+      if (
+        error instanceof UnauthorizedException ||
+        error instanceof BadRequestException ||
+        error instanceof InternalServerErrorException
+      ) {
+        throw error;
+      }
+      this.logger.error(
+        `Error resetting password: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      throw new InternalServerErrorException('Failed to reset password');
     }
   }
 
   async verifyEmail(token: string): Promise<void> {
-    const user = await this.userRepository.findByVerificationToken(token);
-    if (!user) {
-      throw new UnauthorizedException('Invalid verification token');
+    if (!token) {
+      throw new BadRequestException('Verification token is required');
     }
 
-    if (user._id && typeof user._id.toString === 'function') {
-      const userId = user._id.toString();
-      await this.userRepository.markEmailAsVerified(userId);
+    try {
+      const users = await this.userRepository.findAllWithVerificationTokens();
+      if (!users || users.length === 0) {
+        throw new UnauthorizedException('Invalid verification token');
+      }
+
+      let matchedUser: User | null = null;
+
+      for (const user of users) {
+        if (user.verificationToken) {
+          try {
+            const isMatch = await bcrypt.compare(token, user.verificationToken);
+            if (isMatch) {
+              matchedUser = user;
+              break;
+            }
+          } catch (error) {
+            this.logger.error(
+              `Error comparing verification tokens: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            );
+          }
+        }
+      }
+
+      if (!matchedUser) {
+        throw new UnauthorizedException('Invalid verification token');
+      }
+
+      if (
+        matchedUser.verificationTokenExpires &&
+        matchedUser.verificationTokenExpires < new Date()
+      ) {
+        throw new UnauthorizedException('Verification token has expired');
+      }
+
+      if (matchedUser._id && typeof matchedUser._id.toString === 'function') {
+        const userId = matchedUser._id.toString();
+        await this.userRepository.markEmailAsVerified(userId);
+      }
+    } catch (error) {
+      if (
+        error instanceof UnauthorizedException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      this.logger.error(
+        `Error verifying email: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      throw new InternalServerErrorException('Failed to verify email');
     }
   }
 
@@ -312,44 +415,55 @@ export class AuthService {
       throw new BadRequestException('Invalid user data for token generation');
     }
 
-    // Use an intermediate non-error typed variable
-    const userIdObj = user._id;
+    const userId = user._id.toString();
 
     const payload = {
-      sub: userIdObj,
+      sub: userId,
       email: user.email,
       role: user.role,
     };
 
-    // Generate access token
     const accessToken = await this.jwtService.signAsync(payload, {
       secret: this.configService.get<string>('app.jwt.secret'),
       expiresIn: this.configService.get<string>('app.jwt.expiresIn'),
     });
-
-    // Generate refresh token
     const refreshToken = await this.jwtService.signAsync(
-      { sub: userIdObj, tokenType: 'refresh' },
+      { sub: userId, tokenType: 'refresh' },
       {
         secret: this.configService.get<string>('app.jwt.refreshSecret'),
         expiresIn: this.configService.get<string>('app.jwt.refreshExpiresIn'),
       },
     );
 
-    // Store refresh token hash in database
     const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
+    await this.userRepository.updateRefreshToken(userId, refreshTokenHash);
 
-    if (typeof userIdObj.toString === 'function') {
-      const userIdString = userIdObj.toString();
-      await this.userRepository.updateRefreshToken(
-        userIdString,
-        refreshTokenHash,
-      );
+    const expiresInStr =
+      this.configService.get<string>('app.jwt.expiresIn') || '1h';
+    let expiresIn = 3600; // Default to 1 hour (in seconds)
+
+    const timeUnits: Record<string, number> = {
+      s: 1, // seconds
+      m: 60, // minutes
+      h: 3600, // hours
+      d: 86400, // days
+      w: 604800, // weeks
+    };
+
+    const match = expiresInStr.match(/^(\d+)([smhdw])$/);
+    if (match) {
+      const value = parseInt(match[1], 10);
+      const unit = match[2];
+      if (
+        unit === 's' ||
+        unit === 'm' ||
+        unit === 'h' ||
+        unit === 'd' ||
+        unit === 'w'
+      ) {
+        expiresIn = value * timeUnits[unit];
+      }
     }
-
-    const expiresInString =
-      this.configService.get<string>('app.jwt.expiresIn') || '3600';
-    const expiresIn = parseInt(expiresInString);
 
     return {
       accessToken,
@@ -359,7 +473,14 @@ export class AuthService {
   }
 
   private async generateUniqueUsername(baseUsername: string): Promise<string> {
-    let username = baseUsername.toLowerCase().replace(/[^a-z0-9]/g, '');
+    let cleanedBaseUsername = baseUsername
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '');
+    if (!cleanedBaseUsername) {
+      cleanedBaseUsername = 'user';
+    }
+
+    let username = cleanedBaseUsername;
     let counter = 1;
     let isUnique = false;
 
@@ -368,7 +489,7 @@ export class AuthService {
       if (!existingUser) {
         isUnique = true;
       } else {
-        username = `${baseUsername}${counter}`;
+        username = `${cleanedBaseUsername}${counter}`;
         counter++;
       }
     }

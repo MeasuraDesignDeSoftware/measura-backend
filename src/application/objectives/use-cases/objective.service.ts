@@ -30,18 +30,26 @@ export class ObjectiveService {
     private readonly goalRepository: IGoalRepository,
   ) {}
 
-  // Create a new objective
   async createObjective(
     createObjectiveDto: CreateObjectiveDto,
     userId: string,
   ): Promise<ObjectiveDto> {
-    // Validate that all goals exist
-    await this.validateGoalsExist(createObjectiveDto.goalIds);
+    const goalIds = createObjectiveDto.goalIds ?? [];
+    await this.validateGoalsExist(goalIds);
+
+    if (
+      createObjectiveDto.organizationId &&
+      !Types.ObjectId.isValid(createObjectiveDto.organizationId)
+    ) {
+      throw new BadRequestException(
+        `Invalid organizationId format: ${createObjectiveDto.organizationId}`,
+      );
+    }
 
     const objective = new Objective(
       createObjectiveDto.name,
       createObjectiveDto.description,
-      createObjectiveDto.goalIds.map((id) => new Types.ObjectId(id)),
+      goalIds.map((id) => new Types.ObjectId(id)),
       new Types.ObjectId(userId),
       createObjectiveDto.status || ObjectiveStatus.DRAFT,
       createObjectiveDto.organizationId
@@ -53,7 +61,6 @@ export class ObjectiveService {
     return ObjectiveDto.fromEntity(createdObjective);
   }
 
-  // Get objective by ID
   async getObjectiveById(id: string): Promise<ObjectiveDto> {
     const objective = await this.objectiveRepository.findById(id);
     if (!objective) {
@@ -62,19 +69,16 @@ export class ObjectiveService {
     return ObjectiveDto.fromEntity(objective);
   }
 
-  // Get objectives by user ID
   async getObjectivesByUserId(userId: string): Promise<ObjectiveDto[]> {
     const objectives = await this.objectiveRepository.findByCreatedBy(userId);
     return objectives.map((objective) => ObjectiveDto.fromEntity(objective));
   }
 
-  // Get objectives by goal ID
   async getObjectivesByGoalId(goalId: string): Promise<ObjectiveDto[]> {
     const objectives = await this.objectiveRepository.findByGoalId(goalId);
     return objectives.map((objective) => ObjectiveDto.fromEntity(objective));
   }
 
-  // Get objectives by organization ID
   async getObjectivesByOrganizationId(
     organizationId: string,
   ): Promise<ObjectiveDto[]> {
@@ -83,7 +87,6 @@ export class ObjectiveService {
     return objectives.map((objective) => ObjectiveDto.fromEntity(objective));
   }
 
-  // Update an objective
   async updateObjective(
     id: string,
     updateObjectiveDto: UpdateObjectiveDto,
@@ -93,9 +96,26 @@ export class ObjectiveService {
       throw new NotFoundException(`Objective with ID ${id} not found`);
     }
 
-    // Validate goals if provided
     if (updateObjectiveDto.goalIds) {
       await this.validateGoalsExist(updateObjectiveDto.goalIds);
+    }
+    if (
+      updateObjectiveDto.status &&
+      updateObjectiveDto.status !== existingObjective.status
+    ) {
+      this.validateStatusTransition(
+        existingObjective.status,
+        updateObjectiveDto.status,
+      );
+    }
+
+    if (
+      updateObjectiveDto.organizationId &&
+      !Types.ObjectId.isValid(updateObjectiveDto.organizationId)
+    ) {
+      throw new BadRequestException(
+        `Invalid organizationId format: ${updateObjectiveDto.organizationId}`,
+      );
     }
 
     const updateData: Partial<Objective> = {
@@ -126,7 +146,6 @@ export class ObjectiveService {
     return ObjectiveDto.fromEntity(updatedObjective);
   }
 
-  // Delete an objective
   async deleteObjective(id: string): Promise<boolean> {
     const existingObjective = await this.objectiveRepository.findById(id);
     if (!existingObjective) {
@@ -136,7 +155,6 @@ export class ObjectiveService {
     return this.objectiveRepository.delete(id);
   }
 
-  // Update objective status
   async updateObjectiveStatus(
     id: string,
     status: ObjectiveStatus,
@@ -144,6 +162,10 @@ export class ObjectiveService {
     const existingObjective = await this.objectiveRepository.findById(id);
     if (!existingObjective) {
       throw new NotFoundException(`Objective with ID ${id} not found`);
+    }
+
+    if (status !== existingObjective.status) {
+      this.validateStatusTransition(existingObjective.status, status);
     }
 
     const updateData: Partial<Objective> = {
@@ -164,16 +186,64 @@ export class ObjectiveService {
     return ObjectiveDto.fromEntity(updatedObjective);
   }
 
-  // Validate that all goals in the list exist
   private async validateGoalsExist(goalIds: string[]): Promise<void> {
-    const goals = await this.goalRepository.findByIds(goalIds);
+    if (goalIds == null) {
+      throw new BadRequestException('Goal IDs list cannot be undefined');
+    }
 
-    if (goals.length !== goalIds.length) {
+    const validGoalIds = goalIds.filter((id) => {
+      try {
+        return Types.ObjectId.isValid(id);
+      } catch {
+        return false;
+      }
+    });
+
+    if (validGoalIds.length !== goalIds.length) {
+      const invalidIds = goalIds.filter((id) => !validGoalIds.includes(id));
+      throw new BadRequestException(
+        `Invalid goal ID format: ${invalidIds.join(', ')}`,
+      );
+    }
+
+    if (validGoalIds.length === 0) {
+      return;
+    }
+
+    const goals = await this.goalRepository.findByIds(validGoalIds);
+
+    if (goals.length !== validGoalIds.length) {
       const foundGoalIds = goals.map((goal) => goal._id.toString());
-      const missingGoalIds = goalIds.filter((id) => !foundGoalIds.includes(id));
+      const missingGoalIds = validGoalIds.filter(
+        (id) => !foundGoalIds.includes(id),
+      );
 
       throw new BadRequestException(
         `The following goals do not exist: ${missingGoalIds.join(', ')}`,
+      );
+    }
+  }
+
+  private validateStatusTransition(
+    currentStatus: ObjectiveStatus,
+    newStatus: ObjectiveStatus,
+  ): void {
+    const allowedTransitions: Record<ObjectiveStatus, ObjectiveStatus[]> = {
+      [ObjectiveStatus.DRAFT]: [
+        ObjectiveStatus.ACTIVE,
+        ObjectiveStatus.ARCHIVED,
+      ],
+      [ObjectiveStatus.ACTIVE]: [
+        ObjectiveStatus.COMPLETED,
+        ObjectiveStatus.ARCHIVED,
+      ],
+      [ObjectiveStatus.COMPLETED]: [ObjectiveStatus.ARCHIVED],
+      [ObjectiveStatus.ARCHIVED]: [],
+    };
+
+    if (!allowedTransitions[currentStatus].includes(newStatus)) {
+      throw new BadRequestException(
+        `Invalid status transition: Cannot change status from ${currentStatus} to ${newStatus}. Allowed transitions: ${allowedTransitions[currentStatus].join(', ')}`,
       );
     }
   }

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, Logger } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Metric, MetricSchema } from '@domain/metrics/entities/metric.entity';
 import { METRIC_REPOSITORY } from '@domain/metrics/interfaces/metric.repository.interface';
@@ -11,6 +11,7 @@ import { MetricService } from '@application/metrics/use-cases/metric.service';
   ],
   providers: [
     MetricService,
+    Logger,
     {
       provide: METRIC_REPOSITORY,
       useClass: MetricRepository,

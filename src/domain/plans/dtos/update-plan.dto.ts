@@ -9,11 +9,25 @@ import {
   ArrayMinSize,
   IsDate,
   ValidateIf,
+  IsNumber,
+  Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PlanStatus } from '../entities/plan.entity';
+import { IsAfterDate } from '@app/shared/utils/validators/date-range.validator';
 
 export class UpdatePlanDto {
+  @ApiProperty({
+    description:
+      'The current version number of the plan (for optimistic locking)',
+    example: 1,
+    required: true,
+  })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  version: number;
+
   @ApiProperty({
     description: 'The name of the measurement plan',
     example: 'Q3 2023 Quality Improvement Plan',
@@ -64,8 +78,8 @@ export class UpdatePlanDto {
     enum: PlanStatus,
     required: false,
   })
-  @IsEnum(PlanStatus)
   @IsOptional()
+  @IsEnum(PlanStatus)
   status?: PlanStatus;
 
   @ApiProperty({
@@ -84,7 +98,8 @@ export class UpdatePlanDto {
   @IsOptional()
   @IsDate()
   @Type(() => Date)
-  @ValidateIf((o: { startDate?: Date }) => o.startDate != null)
+  @ValidateIf((o: UpdatePlanDto) => o.startDate != null)
+  @IsAfterDate('startDate', { message: 'End date must be after start date' })
   endDate?: Date;
 
   @ApiProperty({
@@ -98,23 +113,33 @@ export class UpdatePlanDto {
 
   @ApiProperty({
     description:
-      'User ID who approved the plan (only applicable for APPROVED status)',
+      'User ID who approved the plan (required for APPROVED or ACTIVE status)',
     example: '507f1f77bcf86cd799439016',
     required: false,
   })
+  @ValidateIf(
+    (o: UpdatePlanDto) =>
+      o.status === PlanStatus.APPROVED || o.status === PlanStatus.ACTIVE,
+  )
   @IsMongoId()
-  @IsOptional()
-  @ValidateIf((o: { status?: PlanStatus }) => o.status === PlanStatus.APPROVED)
+  @IsNotEmpty({
+    message: 'approvedBy is required when plan is approved or active',
+  })
   approvedBy?: string;
 
   @ApiProperty({
     description:
-      'Date when the plan was approved (only applicable for APPROVED status)',
+      'Date when the plan was approved (required for APPROVED or ACTIVE status)',
     required: false,
   })
-  @IsOptional()
+  @ValidateIf(
+    (o: UpdatePlanDto) =>
+      o.status === PlanStatus.APPROVED || o.status === PlanStatus.ACTIVE,
+  )
   @IsDate()
   @Type(() => Date)
-  @ValidateIf((o: { status?: PlanStatus }) => o.status === PlanStatus.APPROVED)
+  @IsNotEmpty({
+    message: 'approvedDate is required when plan is approved or active',
+  })
   approvedDate?: Date;
 }

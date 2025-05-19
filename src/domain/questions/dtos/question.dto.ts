@@ -54,8 +54,13 @@ export class QuestionDto {
   constructor(partial: Partial<QuestionDto>) {
     Object.assign(this, partial);
   }
-
   static fromEntity(question: Question): QuestionDto {
+    if (!question) {
+      throw new Error(
+        'Cannot create QuestionDto from null or undefined question',
+      );
+    }
+
     return new QuestionDto({
       id: question._id?.toString(),
       text: question.text,

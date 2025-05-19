@@ -5,7 +5,8 @@ import {
   HttpCode,
   HttpStatus,
   Get,
-  Param,
+  Query,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthService } from '@application/auth/use-cases/auth.service';
@@ -16,8 +17,9 @@ import { RefreshTokenDto } from '@interfaces/api/dtos/auth/refresh-token.dto';
 import { PasswordResetRequestDto } from '@interfaces/api/dtos/auth/password-reset-request.dto';
 import { PasswordResetDto } from '@interfaces/api/dtos/auth/password-reset.dto';
 import { Public } from '@interfaces/api/decorators/public.decorator';
+import { RateLimitGuard } from '@interfaces/api/guards/rate-limit.guard';
 
-@ApiTags('authentication')
+@ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -54,11 +56,13 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(RateLimitGuard)
   @Post('refresh-token')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Refresh access token using refresh token' })
   @ApiResponse({ status: 200, description: 'Token successfully refreshed' })
   @ApiResponse({ status: 401, description: 'Invalid refresh token' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
   async refreshToken(@Body() refreshTokenDto: RefreshTokenDto) {
     return this.authService.refreshToken(refreshTokenDto);
   }
@@ -67,13 +71,18 @@ export class AuthController {
   @Post('password-reset-request')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request password reset' })
-  @ApiResponse({ status: 200, description: 'Password reset email sent' })
-  @ApiResponse({ status: 404, description: 'User not found' })
+  @ApiResponse({
+    status: 200,
+    description: 'Password reset instructions sent (if the account exists)',
+  })
   async requestPasswordReset(
     @Body() passwordResetRequestDto: PasswordResetRequestDto,
   ) {
     await this.authService.requestPasswordReset(passwordResetRequestDto);
-    return { message: 'Password reset instructions sent to your email' };
+    return {
+      message:
+        'Password reset instructions sent to your email if the account exists',
+    };
   }
 
   @Public()
@@ -88,12 +97,12 @@ export class AuthController {
   }
 
   @Public()
-  @Get('verify-email/:token')
+  @Get('verify-email')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verify email using token' })
   @ApiResponse({ status: 200, description: 'Email successfully verified' })
   @ApiResponse({ status: 401, description: 'Invalid verification token' })
-  async verifyEmail(@Param('token') token: string) {
+  async verifyEmail(@Query('token') token: string) {
     await this.authService.verifyEmail(token);
     return { message: 'Email has been verified successfully' };
   }

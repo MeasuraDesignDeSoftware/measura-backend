@@ -11,6 +11,11 @@ export interface IPlanRepository {
   findByOrganizationId(organizationId: string): Promise<Plan[]>;
   create(plan: Plan): Promise<Plan>;
   update(id: string, plan: Partial<Plan>): Promise<Plan | null>;
+  updateWithVersion(
+    id: string,
+    plan: Partial<Plan>,
+    version: number,
+  ): Promise<Plan | null>;
   delete(id: string): Promise<boolean>;
   findVersionsById(id: string): Promise<Plan[]>;
   createNewVersion(plan: Plan): Promise<Plan>;

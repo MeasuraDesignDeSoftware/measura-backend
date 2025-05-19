@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
-import { ObjectivesModule as ObjectivesControllerModule } from './interfaces/api/controllers/objectives/objectives.module';
+import { ObjectivesModule } from './interfaces/api/controllers/objectives/objectives.module';
 
 @Module({
-  imports: [ObjectivesControllerModule],
-  exports: [ObjectivesControllerModule],
+  imports: [ObjectivesModule],
+  exports: [ObjectivesModule],
 })
-export class ObjectivesModule {}
+export class RootObjectivesModule {}

@@ -14,12 +14,27 @@ export class QuestionRepository implements IQuestionRepository {
     private readonly questionModel: Model<QuestionDocument>,
   ) {}
 
+  private toObjectId(id: string | Types.ObjectId): Types.ObjectId | null {
+    if (!id) return null;
+
+    if (id instanceof Types.ObjectId) return id;
+
+    if (typeof id === 'string' && Types.ObjectId.isValid(id)) {
+      return new Types.ObjectId(id);
+    }
+
+    return null;
+  }
+
   async create(question: Partial<Question>): Promise<Question> {
     const createdQuestion = new this.questionModel(question);
     return createdQuestion.save();
   }
 
   async findById(id: string): Promise<Question | null> {
+    if (!Types.ObjectId.isValid(id)) {
+      return null;
+    }
     return this.questionModel.findById(id).exec();
   }
 
@@ -31,25 +46,33 @@ export class QuestionRepository implements IQuestionRepository {
     id: string,
     question: Partial<Question>,
   ): Promise<Question | null> {
+    const objectId = this.toObjectId(id);
+    if (!objectId) return null;
+
     return this.questionModel
-      .findByIdAndUpdate(id, question, { new: true })
+      .findByIdAndUpdate(objectId, question, { new: true, runValidators: true })
       .exec();
   }
 
   async delete(id: string): Promise<boolean> {
-    const result = await this.questionModel.deleteOne({ _id: id }).exec();
+    const objectId = this.toObjectId(id);
+    if (!objectId) return false;
+
+    const result = await this.questionModel.deleteOne({ _id: objectId }).exec();
     return result.deletedCount > 0;
   }
 
   async findByGoalId(goalId: string): Promise<Question[]> {
-    return this.questionModel
-      .find({ goalId: new Types.ObjectId(goalId) })
-      .exec();
+    const objectId = this.toObjectId(goalId);
+    if (!objectId) return [];
+
+    return this.questionModel.find({ goalId: objectId }).lean().exec();
   }
 
   async findByCreatedBy(userId: string): Promise<Question[]> {
-    return this.questionModel
-      .find({ createdBy: new Types.ObjectId(userId) })
-      .exec();
+    const objectId = this.toObjectId(userId);
+    if (!objectId) return [];
+
+    return this.questionModel.find({ createdBy: objectId }).exec();
   }
 }

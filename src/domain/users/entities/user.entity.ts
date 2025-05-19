@@ -29,6 +29,14 @@ export class User {
   @Prop({ required: true, unique: true })
   username: string;
 
+  @ApiProperty({ description: 'The first name of the user' })
+  @Prop()
+  firstName?: string;
+
+  @ApiProperty({ description: 'The last name of the user' })
+  @Prop()
+  lastName?: string;
+
   @ApiProperty({
     description: 'The hashed password of the user (only for local auth)',
   })
@@ -61,6 +69,10 @@ export class User {
   @ApiProperty({ description: 'Email verification token' })
   @Prop()
   verificationToken?: string;
+
+  @ApiProperty({ description: 'Email verification token expiration date' })
+  @Prop()
+  verificationTokenExpires?: Date;
 
   @ApiProperty({ description: 'Refresh token for JWT authentication' })
   @Prop()

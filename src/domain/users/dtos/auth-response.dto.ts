@@ -60,7 +60,7 @@ export class AuthResponseDto {
       accessToken,
       refreshToken,
       user: {
-        id: user._id.toString(),
+        id: user._id?.toString() || '',
         username: user.username,
         email: user.email,
         role: user.role,

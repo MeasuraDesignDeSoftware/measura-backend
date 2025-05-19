@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { ObjectiveDocument } from '../schemas/objective.schema';
@@ -7,10 +7,32 @@ import { Objective } from '@domain/objectives/entities/objective.entity';
 
 @Injectable()
 export class ObjectiveRepository implements IObjectiveRepository {
+  private readonly logger = new Logger(ObjectiveRepository.name);
+
   constructor(
     @InjectModel('Objective')
     private readonly objectiveModel: Model<ObjectiveDocument>,
   ) {}
+
+  private toObjectId(id: any): Types.ObjectId | null {
+    if (!id) return null;
+
+    if (id instanceof Types.ObjectId) return id;
+
+    if (typeof id === 'string' && Types.ObjectId.isValid(id)) {
+      return new Types.ObjectId(id);
+    }
+
+    return null;
+  }
+
+  private toObjectIdArray(ids: any[]): Types.ObjectId[] {
+    if (!Array.isArray(ids)) return [];
+
+    return ids
+      .map((id) => this.toObjectId(id))
+      .filter((id): id is Types.ObjectId => id !== null);
+  }
 
   private mapToEntity(doc: ObjectiveDocument): Objective {
     const {
@@ -25,35 +47,24 @@ export class ObjectiveRepository implements IObjectiveRepository {
       updatedAt,
     } = doc;
 
-    // Convert created by to the correct type
-    const createdByAsObjectId =
-      typeof createdBy === 'string' ? new Types.ObjectId(createdBy) : createdBy;
-
-    // Convert organizationId to the correct type
-    const orgIdAsObjectId =
-      typeof organizationId === 'string' && organizationId
-        ? new Types.ObjectId(organizationId)
-        : organizationId;
-
-    // Convert _id to the correct type if needed
-    const typedId =
-      _id instanceof Types.ObjectId
-        ? _id
-        : typeof _id === 'string'
-          ? new Types.ObjectId(_id)
-          : _id;
-
     const objective = new Objective(
       name,
       description,
-      goalIds as unknown as Types.ObjectId[],
-      createdByAsObjectId as Types.ObjectId,
+      this.toObjectIdArray(goalIds),
+      (() => {
+        const id = this.toObjectId(createdBy);
+        if (!id) {
+          throw new Error(
+            'Objective.createdBy is required and must be a valid ObjectId',
+          );
+        }
+        return id;
+      })(),
       status,
-      orgIdAsObjectId as Types.ObjectId | undefined,
-      typedId as Types.ObjectId,
+      this.toObjectId(organizationId) || undefined,
+      _id as Types.ObjectId,
     );
 
-    // Set timestamps from the document
     objective.createdAt = createdAt;
     objective.updatedAt = updatedAt;
 
@@ -61,70 +72,209 @@ export class ObjectiveRepository implements IObjectiveRepository {
   }
 
   async findById(id: string): Promise<Objective | null> {
-    const objectiveDoc = await this.objectiveModel.findById(id).exec();
-    return objectiveDoc ? this.mapToEntity(objectiveDoc) : null;
+    try {
+      if (!Types.ObjectId.isValid(id)) {
+        this.logger.warn(`Invalid ObjectId format in findById: ${id}`);
+        return null;
+      }
+
+      const objectiveDoc = await this.objectiveModel.findById(id).exec();
+      return objectiveDoc ? this.mapToEntity(objectiveDoc) : null;
+    } catch (error) {
+      this.logger.error(
+        `Error in findById: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      return null;
+    }
   }
 
   async findByIds(ids: string[]): Promise<Objective[]> {
-    const objectIdsArray = ids.map((id) => new Types.ObjectId(id));
-    const objectiveDocs = await this.objectiveModel
-      .find({ _id: { $in: objectIdsArray } })
-      .exec();
-    return objectiveDocs.map((doc) => this.mapToEntity(doc));
+    try {
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return [];
+      }
+
+      const objectIdsArray = this.toObjectIdArray(ids);
+
+      if (objectIdsArray.length === 0) {
+        return [];
+      }
+
+      const objectiveDocs = await this.objectiveModel
+        .find({ _id: { $in: objectIdsArray } })
+        .exec();
+      return objectiveDocs.map((doc) => this.mapToEntity(doc));
+    } catch (error) {
+      this.logger.error(
+        `Error in findByIds: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      return [];
+    }
   }
 
   async findByCreatedBy(userId: string): Promise<Objective[]> {
-    const objectiveDocs = await this.objectiveModel
-      .find({ createdBy: new Types.ObjectId(userId) })
-      .exec();
-    return objectiveDocs.map((doc) => this.mapToEntity(doc));
+    try {
+      const userObjectId = this.toObjectId(userId);
+      if (!userObjectId) {
+        this.logger.warn(
+          `Invalid ObjectId format in findByCreatedBy: ${userId}`,
+        );
+        return [];
+      }
+
+      const objectiveDocs = await this.objectiveModel
+        .find({ createdBy: userObjectId })
+        .exec();
+      return objectiveDocs.map((doc) => this.mapToEntity(doc));
+    } catch (error) {
+      this.logger.error(
+        `Error in findByCreatedBy: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      return [];
+    }
   }
 
   async findByGoalId(goalId: string): Promise<Objective[]> {
-    const objectiveDocs = await this.objectiveModel
-      .find({ goalIds: new Types.ObjectId(goalId) })
-      .exec();
-    return objectiveDocs.map((doc) => this.mapToEntity(doc));
+    try {
+      const goalObjectId = this.toObjectId(goalId);
+      if (!goalObjectId) {
+        this.logger.warn(`Invalid ObjectId format in findByGoalId: ${goalId}`);
+        return [];
+      }
+
+      const objectiveDocs = await this.objectiveModel
+        .find({ goalIds: goalObjectId })
+        .exec();
+      return objectiveDocs.map((doc) => this.mapToEntity(doc));
+    } catch (error) {
+      this.logger.error(
+        `Error in findByGoalId: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      return [];
+    }
   }
 
   async findByOrganizationId(organizationId: string): Promise<Objective[]> {
-    const objectiveDocs = await this.objectiveModel
-      .find({ organizationId: new Types.ObjectId(organizationId) })
-      .exec();
-    return objectiveDocs.map((doc) => this.mapToEntity(doc));
+    try {
+      const orgObjectId = this.toObjectId(organizationId);
+      if (!orgObjectId) {
+        this.logger.warn(
+          `Invalid ObjectId format in findByOrganizationId: ${organizationId}`,
+        );
+        return [];
+      }
+
+      const objectiveDocs = await this.objectiveModel
+        .find({ organizationId: orgObjectId })
+        .exec();
+      return objectiveDocs.map((doc) => this.mapToEntity(doc));
+    } catch (error) {
+      this.logger.error(
+        `Error in findByOrganizationId: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      return [];
+    }
   }
 
   async create(objective: Objective): Promise<Objective> {
-    const createdObjective = await this.objectiveModel.create({
-      _id: objective._id,
-      name: objective.name,
-      description: objective.description,
-      goalIds: objective.goalIds,
-      status: objective.status,
-      organizationId: objective.organizationId,
-      createdBy: objective.createdBy,
-      createdAt: objective.createdAt,
-      updatedAt: objective.updatedAt,
-    });
+    try {
+      const normalizedObjective = {
+        name: objective.name,
+        description: objective.description,
+        goalIds: this.toObjectIdArray(objective.goalIds),
+        status: objective.status,
+        organizationId: this.toObjectId(objective.organizationId),
+        createdBy: this.toObjectId(objective.createdBy),
+        createdAt: objective.createdAt || new Date(),
+        updatedAt: objective.updatedAt || new Date(),
+      };
 
-    return this.mapToEntity(createdObjective);
+      const createdObjective =
+        await this.objectiveModel.create(normalizedObjective);
+      return this.mapToEntity(createdObjective);
+    } catch (error) {
+      this.logger.error(
+        `Error in create: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      throw error;
+    }
   }
 
   async update(
     id: string,
     objective: Partial<Objective>,
   ): Promise<Objective | null> {
-    const updatedObjective = await this.objectiveModel
-      .findByIdAndUpdate(id, objective, { new: true })
-      .exec();
+    try {
+      const objectId = this.toObjectId(id);
+      if (!objectId) {
+        this.logger.warn(`Invalid ObjectId format in update: ${id}`);
+        return null;
+      }
 
-    return updatedObjective ? this.mapToEntity(updatedObjective) : null;
+      const setFields: Record<string, any> = {
+        updatedAt: new Date(),
+      };
+      const unsetFields: Record<string, number> = {};
+      let hasUnsetFields = false;
+
+      if (objective.name !== undefined) setFields.name = objective.name;
+      if (objective.description !== undefined)
+        setFields.description = objective.description;
+      if (objective.status !== undefined) setFields.status = objective.status;
+
+      if (objective.goalIds !== undefined) {
+        setFields.goalIds = this.toObjectIdArray(objective.goalIds);
+      }
+
+      if ('organizationId' in objective) {
+        if (
+          objective.organizationId === undefined ||
+          objective.organizationId === null
+        ) {
+          unsetFields.organizationId = 1;
+          hasUnsetFields = true;
+        } else {
+          setFields.organizationId = this.toObjectId(objective.organizationId);
+        }
+      }
+
+      const mongoUpdate: Record<string, any> = {};
+      if (Object.keys(setFields).length > 0) mongoUpdate.$set = setFields;
+      if (hasUnsetFields) mongoUpdate.$unset = unsetFields;
+
+      const updatedObjective = await this.objectiveModel
+        .findByIdAndUpdate(objectId, mongoUpdate, {
+          new: true,
+          runValidators: true,
+        })
+        .exec();
+
+      return updatedObjective ? this.mapToEntity(updatedObjective) : null;
+    } catch (error) {
+      this.logger.error(
+        `Error in update: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      throw error;
+    }
   }
 
   async delete(id: string): Promise<boolean> {
-    const result = await this.objectiveModel
-      .deleteOne({ _id: new Types.ObjectId(id) })
-      .exec();
-    return result.deletedCount > 0;
+    try {
+      const objectId = this.toObjectId(id);
+      if (!objectId) {
+        this.logger.warn(`Invalid ObjectId format in delete: ${id}`);
+        return false;
+      }
+
+      const result = await this.objectiveModel
+        .deleteOne({ _id: objectId })
+        .exec();
+      return result.deletedCount > 0;
+    } catch (error) {
+      this.logger.error(
+        `Error in delete: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      throw error;
+    }
   }
 }

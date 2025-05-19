@@ -4,13 +4,16 @@ import {
   Post,
   Param,
   Body,
-  Res,
   UseGuards,
   NotFoundException,
   InternalServerErrorException,
   BadRequestException,
+  Logger,
+  StreamableFile,
+  Header,
+  HttpStatus,
+  HttpCode,
 } from '@nestjs/common';
-import { Response } from 'express';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -22,10 +25,12 @@ import {
 import { JwtAuthGuard } from '@interfaces/api/guards/jwt-auth.guard';
 import { GetUser } from '@interfaces/api/decorators/get-user.decorator';
 import { PlanExportService } from '@application/plans/use-cases/plan-export.service';
-import { PlanDto } from '@domain/plans/dtos/plan.dto';
+import { PlanDto, ImportPlanDto } from '@domain/plans/dtos';
+import { ParseMongoIdPipe } from '@app/shared/utils/pipes/parse-mongo-id.pipe';
 
-class ImportPlanDto {
-  content: string;
+interface RequestUser {
+  id: string;
+  [key: string]: any;
 }
 
 @ApiTags('Plan Export/Import')
@@ -33,31 +38,41 @@ class ImportPlanDto {
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class PlanExportController {
+  private readonly logger = new Logger(PlanExportController.name);
+
   constructor(private readonly planExportService: PlanExportService) {}
+
+  private handleExportError(error: unknown, operation: string): never {
+    const errorMessage =
+      error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    this.logger.error(`Error ${operation}: ${errorMessage}`, errorStack);
+
+    if (
+      error instanceof NotFoundException ||
+      error instanceof BadRequestException
+    ) {
+      throw error;
+    }
+    throw new InternalServerErrorException(`Failed to ${operation}`);
+  }
 
   @Get(':id/json')
   @ApiOperation({ summary: 'Export a plan as JSON' })
   @ApiParam({ name: 'id', description: 'Plan ID' })
   @ApiResponse({ status: 200, description: 'Plan exported successfully' })
   @ApiResponse({ status: 404, description: 'Plan not found' })
+  @ApiResponse({ status: 400, description: 'Invalid request' })
+  @Header('Content-Type', 'application/json')
+  @Header('Content-Disposition', 'attachment; filename="plan.json"')
   async exportAsJson(
-    @Param('id') id: string,
-    @Res() res: Response,
-  ): Promise<void> {
+    @Param('id', ParseMongoIdPipe) id: string,
+  ): Promise<StreamableFile> {
     try {
       const jsonData = await this.planExportService.exportAsJson(id);
-
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename="plan-${id}.json"`,
-      );
-      res.send(jsonData);
+      return new StreamableFile(Buffer.from(jsonData));
     } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new InternalServerErrorException('Failed to export plan as JSON');
+      return this.handleExportError(error, 'exporting plan as JSON');
     }
   }
 
@@ -66,28 +81,22 @@ export class PlanExportController {
   @ApiParam({ name: 'id', description: 'Plan ID' })
   @ApiResponse({ status: 200, description: 'Plan exported successfully' })
   @ApiResponse({ status: 404, description: 'Plan not found' })
+  @ApiResponse({ status: 400, description: 'Invalid request' })
+  @Header('Content-Type', 'text/csv')
+  @Header('Content-Disposition', 'attachment; filename="plan.csv"')
   async exportAsCsv(
-    @Param('id') id: string,
-    @Res() res: Response,
-  ): Promise<void> {
+    @Param('id', ParseMongoIdPipe) id: string,
+  ): Promise<StreamableFile> {
     try {
       const csvData = await this.planExportService.exportAsCsv(id);
-
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename="plan-${id}.csv"`,
-      );
-      res.send(csvData);
+      return new StreamableFile(Buffer.from(csvData));
     } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new InternalServerErrorException('Failed to export plan as CSV');
+      return this.handleExportError(error, 'exporting plan as CSV');
     }
   }
 
   @Post('import/json')
+  @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Import a plan from JSON' })
   @ApiBody({ description: 'JSON content to import', type: ImportPlanDto })
   @ApiResponse({
@@ -98,7 +107,7 @@ export class PlanExportController {
   @ApiResponse({ status: 400, description: 'Invalid JSON data' })
   async importFromJson(
     @Body() importData: ImportPlanDto,
-    @GetUser() user: any,
+    @GetUser() user: RequestUser,
   ): Promise<PlanDto> {
     try {
       if (!importData || !importData.content) {
@@ -110,10 +119,7 @@ export class PlanExportController {
         user.id,
       );
     } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      throw new InternalServerErrorException('Failed to import plan from JSON');
+      return this.handleExportError(error, 'importing plan from JSON');
     }
   }
 }

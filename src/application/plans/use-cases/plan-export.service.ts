@@ -3,6 +3,8 @@ import {
   Inject,
   NotFoundException,
   BadRequestException,
+  Logger,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import {
   IPlanRepository,
@@ -35,8 +37,8 @@ import { Goal } from '@domain/goals/entities/goal.entity';
 import { Objective } from '@domain/objectives/entities/objective.entity';
 import { Question } from '@domain/questions/entities/question.entity';
 import { Metric } from '@domain/metrics/entities/metric.entity';
+import * as mongoose from 'mongoose';
 
-// Structure for complete measurement plan data with all related entities
 export interface CompletePlanData {
   plan: PlanDto;
   goals: GoalDto[];
@@ -47,6 +49,8 @@ export interface CompletePlanData {
 
 @Injectable()
 export class PlanExportService {
+  private readonly logger = new Logger(PlanExportService.name);
+
   constructor(
     @Inject(PLAN_REPOSITORY)
     private readonly planRepository: IPlanRepository,
@@ -60,66 +64,145 @@ export class PlanExportService {
     private readonly metricRepository: IMetricRepository,
   ) {}
 
-  // Get complete data for a plan (plan + all related entities)
+  private toObjectId(
+    id: string | Types.ObjectId | null | undefined,
+  ): Types.ObjectId | null {
+    if (!id) return null;
+
+    try {
+      if (id instanceof Types.ObjectId) return id;
+      if (typeof id === 'string' && Types.ObjectId.isValid(id)) {
+        return new Types.ObjectId(id);
+      }
+      return null;
+    } catch {
+      this.logger.warn(`Failed to convert to ObjectId: ${String(id)}`);
+      return null;
+    }
+  }
+
+  private toObjectIdArray(
+    ids: (string | Types.ObjectId | null | undefined)[] | null | undefined,
+  ): Types.ObjectId[] {
+    if (!ids || !Array.isArray(ids)) return [];
+
+    return ids
+      .map((id) => this.toObjectId(id))
+      .filter((id): id is Types.ObjectId => id !== null);
+  }
+
   async getCompletePlanData(planId: string): Promise<CompletePlanData> {
-    // Get the plan
+    const planObjectId = this.toObjectId(planId);
+    if (!planObjectId) {
+      throw new BadRequestException(`Invalid plan ID format: ${planId}`);
+    }
+
     const plan = await this.planRepository.findById(planId);
     if (!plan) {
       throw new NotFoundException(`Plan with ID ${planId} not found`);
     }
 
-    // Convert plan to DTO
     const planDto = PlanDto.fromEntity(plan);
 
-    // Get all related goals
-    const goalIds = plan.goalIds.map((id) => id.toString());
-    const goals = await this.goalRepository.findByIds(goalIds);
+    const goalIds =
+      plan.goalIds?.map((id) => id?.toString()).filter(Boolean) || [];
 
-    if (!goals || !Array.isArray(goals) || goals.length === 0) {
-      throw new BadRequestException('Failed to retrieve goals for the plan');
-    }
+    const goals =
+      goalIds.length > 0 ? await this.goalRepository.findByIds(goalIds) : [];
 
-    const goalDtos = goals.map((goal: Goal) => GoalDto.fromEntity(goal));
+    const safeGoals = Array.isArray(goals) ? goals : [];
+    const goalDtos = safeGoals.map((goal: Goal) => GoalDto.fromEntity(goal));
 
-    // Get all related objectives
-    const objectiveIds = plan.objectiveIds.map((id) => id.toString());
-    const objectives = await this.objectiveRepository.findByIds(objectiveIds);
+    const objectiveIds =
+      plan.objectiveIds?.map((id) => id?.toString()).filter(Boolean) || [];
 
-    if (!objectives || !Array.isArray(objectives)) {
-      throw new BadRequestException(
-        'Failed to retrieve objectives for the plan',
-      );
-    }
+    const objectives =
+      objectiveIds.length > 0
+        ? await this.objectiveRepository.findByIds(objectiveIds)
+        : [];
 
-    const objectiveDtos = objectives.map((objective: Objective) =>
+    const safeObjectives = Array.isArray(objectives) ? objectives : [];
+    const objectiveDtos = safeObjectives.map((objective: Objective) =>
       ObjectiveDto.fromEntity(objective),
     );
 
-    // Get all questions related to the goals
-    const cleanGoalIds = goals.map((goal: Goal) => goal._id.toString());
-    const questionsPromises = cleanGoalIds.map((goalId: string) =>
-      this.questionRepository.findByGoalId(goalId),
-    );
+    const cleanGoalIds = safeGoals
+      .map((goal: Goal) => goal._id?.toString())
+      .filter(Boolean);
 
-    const questionsResult = await Promise.all(questionsPromises);
-    const allQuestions = questionsResult.flat();
+    let allQuestions: Question[] = [];
+    if (cleanGoalIds.length > 0) {
+      try {
+        const questionsPromises = cleanGoalIds.map((goalId: string) =>
+          this.questionRepository.findByGoalId(goalId),
+        );
 
-    const questionDtos = allQuestions.map((question: Question) =>
+        const questionsResult = await Promise.allSettled(questionsPromises);
+        allQuestions = questionsResult
+          .map((result, index) => {
+            if (result.status === 'fulfilled') {
+              return result.value;
+            } else {
+              const reason =
+                result.reason instanceof Error
+                  ? result.reason.message
+                  : 'Unknown error';
+              this.logger.warn(
+                `Failed to fetch questions for goal ${cleanGoalIds[index]}: ${reason}`,
+              );
+              return [];
+            }
+          })
+          .flat();
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error';
+        this.logger.error(`Error retrieving questions: ${errorMessage}`);
+      }
+    }
+
+    const safeQuestions = Array.isArray(allQuestions) ? allQuestions : [];
+    const questionDtos = safeQuestions.map((question: Question) =>
       QuestionDto.fromEntity(question),
     );
 
-    // Get all metrics related to the questions
-    const questionIds = allQuestions.map((question: Question) =>
-      question._id.toString(),
-    );
-    const metricsPromises = questionIds.map((questionId: string) =>
-      this.metricRepository.findByQuestionId(questionId),
-    );
+    const questionIds = safeQuestions
+      .map((question: Question) => question._id?.toString())
+      .filter(Boolean);
 
-    const metricsResult = await Promise.all(metricsPromises);
-    const allMetrics = metricsResult.flat();
+    let allMetrics: Metric[] = [];
+    if (questionIds.length > 0) {
+      try {
+        const metricsPromises = questionIds.map((questionId: string) =>
+          this.metricRepository.findByQuestionId(questionId),
+        );
 
-    const metricDtos = allMetrics.map((metric: Metric) =>
+        const metricsResult = await Promise.allSettled(metricsPromises);
+        allMetrics = metricsResult
+          .map((result, index) => {
+            if (result.status === 'fulfilled') {
+              return result.value;
+            } else {
+              const reason =
+                result.reason instanceof Error
+                  ? result.reason.message
+                  : 'Unknown error';
+              this.logger.warn(
+                `Failed to fetch metrics for question ${questionIds[index]}: ${reason}`,
+              );
+              return [];
+            }
+          })
+          .flat();
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error';
+        this.logger.error(`Error retrieving metrics: ${errorMessage}`);
+      }
+    }
+
+    const safeMetrics = Array.isArray(allMetrics) ? allMetrics : [];
+    const metricDtos = safeMetrics.map((metric: Metric) =>
       MetricDto.fromEntity(metric),
     );
 
@@ -132,72 +215,75 @@ export class PlanExportService {
     };
   }
 
-  // Export plan as JSON
   async exportAsJson(planId: string): Promise<string> {
     const data = await this.getCompletePlanData(planId);
     return JSON.stringify(data, null, 2);
   }
 
-  // Export plan as CSV
   async exportAsCsv(planId: string): Promise<string> {
     const data = await this.getCompletePlanData(planId);
 
-    // Create CSV header
     const header = 'Type,ID,Name,Description,Status,Related To\n';
 
-    // Create rows for plan
     let csvContent = header;
-    csvContent += `Plan,${data.plan.id},${this.escapeCsvField(data.plan.name)},${this.escapeCsvField(data.plan.description)},${data.plan.status},""\n`;
+    csvContent += `Plan,${data.plan.id},${this.escapeCsvField(data.plan.name)},${this.escapeCsvField(data.plan.description)},${this.escapeCsvField(String(data.plan.status))},""\n`;
 
-    // Create rows for goals
     for (const goal of data.goals) {
-      csvContent += `Goal,${goal.id},${this.escapeCsvField(goal.name)},${this.escapeCsvField(goal.description)},${goal.status},"${data.plan.id}"\n`;
+      csvContent += `Goal,${goal.id},${this.escapeCsvField(goal.name)},${this.escapeCsvField(goal.description)},${this.escapeCsvField(String(goal.status))},"${data.plan.id}"\n`;
     }
 
-    // Create rows for objectives
     for (const objective of data.objectives) {
-      csvContent += `Objective,${objective.id},${this.escapeCsvField(objective.name)},${this.escapeCsvField(objective.description)},${objective.status},"${data.plan.id}"\n`;
+      csvContent += `Objective,${objective.id},${this.escapeCsvField(objective.name)},${this.escapeCsvField(objective.description)},${this.escapeCsvField(String(objective.status))},"${data.plan.id}"\n`;
     }
 
-    // Create rows for questions
     for (const question of data.questions) {
       const relatedGoal = data.goals.find(
         (goal) => goal.id === question.goalId,
       );
-      csvContent += `Question,${question.id},${this.escapeCsvField(question.text)},${this.escapeCsvField(question.description || '')},${question.priority},"${relatedGoal?.id || ''}"\n`;
+      csvContent += `Question,${question.id},${this.escapeCsvField(question.text)},${this.escapeCsvField(String(question.description || ''))},${this.escapeCsvField(String(question.priority))},"${relatedGoal?.id || ''}"\n`;
     }
 
-    // Create rows for metrics
     for (const metric of data.metrics) {
       const relatedQuestion = data.questions.find(
         (q) => q.id === metric.questionId,
       );
-      csvContent += `Metric,${metric.id},${this.escapeCsvField(metric.name)},${this.escapeCsvField(metric.description || '')},${metric.type},"${relatedQuestion?.id || ''}"\n`;
+      csvContent += `Metric,${metric.id},${this.escapeCsvField(metric.name)},${this.escapeCsvField(String(metric.description || ''))},${this.escapeCsvField(String(metric.type))},"${relatedQuestion?.id || ''}"\n`;
     }
 
     return csvContent;
   }
 
-  // Helper to escape CSV fields
   private escapeCsvField(field: string): string {
-    if (!field) return '';
+    if (field === undefined || field === null) return '';
 
-    // If the field contains quotes, commas, or newlines, escape it
-    if (field.includes('"') || field.includes(',') || field.includes('\n')) {
-      // Double up any quotes and wrap the whole thing in quotes
-      return `"${field.replace(/"/g, '""')}"`;
+    const strField = String(field);
+
+    const shouldEscapeFormulaInjection = /^[=+\-@\t ]/.test(strField);
+    const safeField = shouldEscapeFormulaInjection ? `'${strField}` : strField;
+
+    if (
+      safeField.includes('"') ||
+      safeField.includes(',') ||
+      safeField.includes('\n')
+    ) {
+      return `"${safeField.replace(/"/g, '""')}"`;
     }
 
-    return field;
+    return safeField;
   }
 
-  // Import plan from JSON
   async importFromJson(jsonData: string, userId: string): Promise<PlanDto> {
     try {
-      const data = JSON.parse(jsonData) as CompletePlanData;
+      if (!jsonData) {
+        throw new BadRequestException('JSON data is required');
+      }
 
-      // For now, just create a new plan based on the imported data
-      // In a real implementation, you would also create/update goals, objectives, etc.
+      let data: CompletePlanData;
+      try {
+        data = JSON.parse(jsonData) as CompletePlanData;
+      } catch {
+        throw new BadRequestException('Invalid JSON format');
+      }
 
       if (!data.plan) {
         throw new BadRequestException(
@@ -205,43 +291,236 @@ export class PlanExportService {
         );
       }
 
-      // Create a simplified plan import that just contains the plan data
-      const importedPlan = await this.createPlanFromImport(data.plan, userId);
+      const hasGoals = Array.isArray(data.goals) && data.goals.length > 0;
+      const hasObjectives =
+        Array.isArray(data.objectives) && data.objectives.length > 0;
+      const hasQuestions =
+        Array.isArray(data.questions) && data.questions.length > 0;
+      const hasMetrics = Array.isArray(data.metrics) && data.metrics.length > 0;
+
+      if (hasGoals || hasObjectives || hasQuestions || hasMetrics) {
+        const ignoredArrays: string[] = [];
+        if (hasGoals) ignoredArrays.push('goals');
+        if (hasObjectives) ignoredArrays.push('objectives');
+        if (hasQuestions) ignoredArrays.push('questions');
+        if (hasMetrics) ignoredArrays.push('metrics');
+
+        throw new BadRequestException(
+          `Import contains data that will be ignored: ${ignoredArrays.join(', ')}. ` +
+            'Only the plan object itself will be imported. Please import related entities separately.',
+        );
+      }
+
+      const userObjectId = this.toObjectId(userId);
+      if (!userObjectId) {
+        throw new BadRequestException(`Invalid user ID format: ${userId}`);
+      }
+
+      await this.validateImportedPlanData(data);
+
+      const importedPlan = await this.createPlanFromImport(
+        data.plan,
+        userObjectId,
+      );
 
       return importedPlan;
     } catch (error) {
       if (error instanceof SyntaxError) {
         throw new BadRequestException('Invalid JSON format');
+      } else if (error instanceof BadRequestException) {
+        throw error;
+      } else if (error instanceof NotFoundException) {
+        throw error;
+      } else {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error';
+        const errorStack = error instanceof Error ? error.stack : undefined;
+        this.logger.error(
+          `Error importing plan from JSON: ${errorMessage}`,
+          errorStack,
+        );
+        throw new InternalServerErrorException(
+          `Failed to import plan: ${errorMessage}`,
+        );
       }
-      throw error;
     }
   }
 
-  // Helper to create a plan from imported data
-  private async createPlanFromImport(
-    planData: PlanDto,
-    userId: string,
-  ): Promise<PlanDto> {
-    // In a real implementation, you would create goals, objectives, etc. first,
-    // then use their IDs when creating the plan
+  private async validateImportedPlanData(
+    data: CompletePlanData,
+  ): Promise<void> {
+    if (!data.plan.name || typeof data.plan.name !== 'string') {
+      throw new BadRequestException(
+        'Plan name is required and must be a string',
+      );
+    }
 
-    // For simplicity, we'll just create a new plan with the name and description
-    const newPlan = new Plan(
-      `${planData.name} (Imported)`,
-      planData.description,
-      (planData.goalIds || []).map((id) => new Types.ObjectId(id)),
-      (planData.objectiveIds || []).map((id) => new Types.ObjectId(id)),
-      new Types.ObjectId(userId),
-      planData.status || PlanStatus.DRAFT,
-      planData.startDate,
-      planData.endDate,
-      planData.organizationId
-        ? new Types.ObjectId(planData.organizationId)
-        : undefined,
+    if (!data.plan.description || typeof data.plan.description !== 'string') {
+      throw new BadRequestException(
+        'Plan description is required and must be a string',
+      );
+    }
+
+    if (
+      data.plan.status &&
+      !Object.values(PlanStatus).includes(data.plan.status)
+    ) {
+      throw new BadRequestException(
+        `Invalid plan status. Must be one of: ${Object.values(PlanStatus).join(', ')}`,
+      );
+    }
+
+    if (data.plan.startDate && !(data.plan.startDate instanceof Date)) {
+      try {
+        data.plan.startDate = new Date(data.plan.startDate);
+        if (isNaN(data.plan.startDate.getTime())) {
+          throw new BadRequestException('Invalid date');
+        }
+      } catch {
+        throw new BadRequestException('Invalid start date format');
+      }
+    }
+
+    if (data.plan.endDate && !(data.plan.endDate instanceof Date)) {
+      try {
+        data.plan.endDate = new Date(data.plan.endDate);
+        if (isNaN(data.plan.endDate.getTime())) {
+          throw new BadRequestException('Invalid date');
+        }
+      } catch {
+        throw new BadRequestException('Invalid end date format');
+      }
+    }
+
+    if (data.plan.approvedDate && !(data.plan.approvedDate instanceof Date)) {
+      try {
+        data.plan.approvedDate = new Date(data.plan.approvedDate);
+        if (isNaN(data.plan.approvedDate.getTime())) {
+          throw new BadRequestException('Invalid date');
+        }
+      } catch {
+        throw new BadRequestException('Invalid approved date format');
+      }
+    }
+
+    if (!Array.isArray(data.plan.goalIds)) {
+      throw new BadRequestException('Plan goalIds must be an array');
+    }
+
+    if (!Array.isArray(data.plan.objectiveIds)) {
+      throw new BadRequestException('Plan objectiveIds must be an array');
+    }
+
+    const validGoalIds = this.toObjectIdArray(data.plan.goalIds).map((id) =>
+      id.toString(),
     );
 
-    // Create the plan in the repository
-    const createdPlan = await this.planRepository.create(newPlan);
-    return PlanDto.fromEntity(createdPlan);
+    const validObjectiveIds = this.toObjectIdArray(data.plan.objectiveIds).map(
+      (id) => id.toString(),
+    );
+
+    if (validGoalIds.length > 0) {
+      const goals = await this.goalRepository.findByIds(validGoalIds);
+      if (goals.length !== validGoalIds.length) {
+        const foundGoalIds = goals.map((goal) => goal._id.toString());
+        const missingGoalIds = validGoalIds.filter(
+          (id) => !foundGoalIds.includes(id),
+        );
+        this.logger.warn(
+          `The following goals do not exist: ${missingGoalIds.join(', ')}`,
+        );
+
+        data.plan.goalIds = foundGoalIds;
+      }
+    } else {
+      data.plan.goalIds = [];
+    }
+
+    if (validObjectiveIds.length > 0) {
+      const objectives =
+        await this.objectiveRepository.findByIds(validObjectiveIds);
+      if (objectives.length !== validObjectiveIds.length) {
+        const foundObjectiveIds = objectives.map((objective) =>
+          objective._id.toString(),
+        );
+        const missingObjectiveIds = validObjectiveIds.filter(
+          (id) => !foundObjectiveIds.includes(id),
+        );
+        this.logger.warn(
+          `The following objectives do not exist: ${missingObjectiveIds.join(', ')}`,
+        );
+
+        data.plan.objectiveIds = foundObjectiveIds;
+      }
+    } else {
+      data.plan.objectiveIds = [];
+    }
+
+    if (data.plan.organizationId) {
+      data.plan.organizationId =
+        this.toObjectId(data.plan.organizationId)?.toString() || undefined;
+    }
+
+    if (data.plan.approvedBy) {
+      data.plan.approvedBy =
+        this.toObjectId(data.plan.approvedBy)?.toString() || undefined;
+    }
+  }
+
+  private async createPlanFromImport(
+    planData: PlanDto,
+    userId: Types.ObjectId,
+  ): Promise<PlanDto> {
+    try {
+      const goalIds = this.toObjectIdArray(planData.goalIds);
+      const objectiveIds = this.toObjectIdArray(planData.objectiveIds);
+
+      const newPlan = new Plan(
+        `${planData.name} (Imported)`,
+        planData.description || '',
+        goalIds,
+        objectiveIds,
+        userId,
+        planData.status || PlanStatus.DRAFT,
+        planData.startDate,
+        planData.endDate,
+        this.toObjectId(planData.organizationId) || undefined,
+      );
+
+      const approvedById = this.toObjectId(planData.approvedBy);
+      if (
+        approvedById &&
+        [PlanStatus.APPROVED, PlanStatus.ACTIVE].includes(planData.status)
+      ) {
+        newPlan.approvedBy = approvedById;
+        newPlan.approvedDate =
+          planData.approvedDate instanceof Date
+            ? planData.approvedDate
+            : new Date(planData.approvedDate ?? Date.now());
+      }
+
+      const createdPlan = await this.planRepository.create(newPlan);
+      return PlanDto.fromEntity(createdPlan);
+    } catch (error) {
+      if (error instanceof mongoose.Error.ValidationError) {
+        throw new BadRequestException(`Validation error: ${error.message}`);
+      } else if (
+        (error instanceof Error && error.name === 'CastError') ||
+        (error instanceof Error && error.message.includes('ObjectId'))
+      ) {
+        throw new BadRequestException(
+          `Invalid ID format in imported data: ${error.message}`,
+        );
+      } else {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error';
+        const errorStack = error instanceof Error ? error.stack : undefined;
+        this.logger.error(
+          `Error creating plan from import: ${errorMessage}`,
+          errorStack,
+        );
+        throw error;
+      }
+    }
   }
 }

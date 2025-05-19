@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Plan, PlanStatus } from '../entities/plan.entity';
+import { Plan, PlanStatus } from '@domain/plans/entities/plan.entity';
 
 export class PlanDto {
   @ApiProperty({ description: 'Unique identifier of the plan' })
@@ -72,22 +72,34 @@ export class PlanDto {
   version: number;
 
   static fromEntity(plan: Plan): PlanDto {
+    if (!plan) {
+      throw new Error('Cannot create PlanDto from null or undefined plan');
+    }
+
     const dto = new PlanDto();
-    dto.id = plan._id.toString();
-    dto.name = plan.name;
-    dto.description = plan.description;
-    dto.goalIds = plan.goalIds.map((id) => id.toString());
-    dto.objectiveIds = plan.objectiveIds.map((id) => id.toString());
-    dto.status = plan.status;
+    dto.id = plan._id?.toString() || '';
+    dto.name = plan.name || '';
+    dto.description = plan.description || '';
+
+    dto.goalIds = Array.isArray(plan.goalIds)
+      ? plan.goalIds.map((id) => id?.toString()).filter(Boolean)
+      : [];
+
+    dto.objectiveIds = Array.isArray(plan.objectiveIds)
+      ? plan.objectiveIds.map((id) => id?.toString()).filter(Boolean)
+      : [];
+
+    dto.status = plan.status ?? PlanStatus.DRAFT;
     dto.startDate = plan.startDate;
     dto.endDate = plan.endDate;
     dto.approvedBy = plan.approvedBy?.toString();
     dto.approvedDate = plan.approvedDate;
     dto.organizationId = plan.organizationId?.toString();
-    dto.createdBy = plan.createdBy.toString();
-    dto.createdAt = plan.createdAt;
-    dto.updatedAt = plan.updatedAt;
-    dto.version = plan.version;
+    dto.createdBy = plan.createdBy?.toString() || '';
+    dto.createdAt = plan.createdAt || new Date();
+    dto.updatedAt = plan.updatedAt || new Date();
+    dto.version = plan.version || 1;
+
     return dto;
   }
 }

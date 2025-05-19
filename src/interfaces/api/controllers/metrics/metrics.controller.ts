@@ -11,6 +11,7 @@ import {
   NotFoundException,
   InternalServerErrorException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -22,10 +23,12 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '@interfaces/api/guards/jwt-auth.guard';
 import { GetUser } from '@interfaces/api/decorators/get-user.decorator';
-import { MetricService } from '@application/metrics/use-cases/metric.service';
+import { MetricService } from '@app/application/metrics/use-cases/metric.service';
 import { CreateMetricDto } from '@domain/metrics/dtos/create-metric.dto';
 import { UpdateMetricDto } from '@domain/metrics/dtos/update-metric.dto';
 import { MetricDto } from '@domain/metrics/dtos/metric.dto';
+import { ParseMongoIdPipe } from '@app/shared/utils/pipes/parse-mongo-id.pipe';
+import { Types } from 'mongoose';
 
 interface RequestUser {
   id: string;
@@ -37,6 +40,8 @@ interface RequestUser {
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class MetricsController {
+  private readonly logger = new Logger(MetricsController.name);
+
   constructor(private readonly metricService: MetricService) {}
 
   @Post()
@@ -57,7 +62,7 @@ export class MetricsController {
         user.id,
       );
       return result;
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof BadRequestException) {
         throw error;
       }
@@ -99,8 +104,15 @@ export class MetricsController {
         const metrics = await this.metricService.getMetricsByUserId(user.id);
         return metrics;
       }
+
+      this.logger.warn(
+        'No filter provided (questionId, goalId, or authenticated user) for metrics query',
+      );
       return [];
-    } catch (_) {
+    } catch (error: any) {
+      this.logger.error(
+        `Error retrieving metrics: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
       throw new InternalServerErrorException('Failed to retrieve metrics');
     }
   }
@@ -113,12 +125,29 @@ export class MetricsController {
     description: 'Metrics retrieved successfully',
     type: [MetricDto],
   })
-  async getMetricsByIds(@Query('ids') ids: string): Promise<MetricDto[]> {
+  @ApiResponse({ status: 400, description: 'Missing or invalid IDs parameter' })
+  async getMetricsByIds(@Query('ids') ids?: string): Promise<MetricDto[]> {
     try {
-      const metricIds = ids.split(',').map((id) => id.trim());
+      if (!ids) {
+        this.logger.warn('Missing required query parameter: ids');
+        throw new BadRequestException('Missing required query parameter: ids');
+      }
+
+      const metricIds = ids.split(',').filter((id) => id.trim().length > 0);
+
+      if (metricIds.length === 0) {
+        throw new BadRequestException('No valid metric IDs provided');
+      }
+
       const metrics = await this.metricService.getMetricsByIds(metricIds);
       return metrics;
-    } catch (_) {
+    } catch (error: any) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      this.logger.error(
+        `Error retrieving metrics in bulk: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
       throw new InternalServerErrorException('Failed to retrieve metrics');
     }
   }
@@ -132,11 +161,13 @@ export class MetricsController {
     type: MetricDto,
   })
   @ApiResponse({ status: 404, description: 'Metric not found' })
-  async getMetricById(@Param('id') id: string): Promise<MetricDto> {
+  async getMetricById(
+    @Param('id', ParseMongoIdPipe) id: string,
+  ): Promise<MetricDto> {
     try {
       const metric = await this.metricService.getMetricById(id);
       return metric;
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof NotFoundException) {
         throw error;
       }
@@ -155,7 +186,7 @@ export class MetricsController {
   @ApiResponse({ status: 404, description: 'Metric not found' })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   async updateMetric(
-    @Param('id') id: string,
+    @Param('id', ParseMongoIdPipe) id: string,
     @Body() updateMetricDto: UpdateMetricDto,
   ): Promise<MetricDto> {
     try {
@@ -164,7 +195,7 @@ export class MetricsController {
         updateMetricDto,
       );
       return updatedMetric;
-    } catch (error) {
+    } catch (error: any) {
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
@@ -180,11 +211,13 @@ export class MetricsController {
   @ApiParam({ name: 'id', description: 'Metric ID' })
   @ApiResponse({ status: 200, description: 'Metric deleted successfully' })
   @ApiResponse({ status: 404, description: 'Metric not found' })
-  async deleteMetric(@Param('id') id: string): Promise<{ success: boolean }> {
+  async deleteMetric(
+    @Param('id', ParseMongoIdPipe) id: string,
+  ): Promise<{ success: boolean }> {
     try {
       const success = await this.metricService.deleteMetric(id);
       return { success };
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof NotFoundException) {
         throw error;
       }
@@ -210,7 +243,7 @@ export class MetricsController {
       );
       const results = await Promise.all(metricPromises);
       return results;
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof BadRequestException) {
         throw error;
       }
@@ -231,22 +264,45 @@ export class MetricsController {
     description: 'Metrics deleted successfully',
     type: Object,
   })
+  @ApiResponse({ status: 400, description: 'Missing or invalid IDs parameter' })
   async deleteBulkMetrics(
-    @Query('ids') ids: string,
+    @Query('ids') ids?: string,
   ): Promise<{ success: boolean; deletedCount: number }> {
     try {
-      const metricIds = ids.split(',').map((id) => id.trim());
+      if (!ids) {
+        this.logger.warn('Missing required query parameter: ids');
+        throw new BadRequestException('Missing required query parameter: ids');
+      }
+
+      const metricIds = ids.split(',').filter((id) => id.trim().length > 0);
+
+      if (metricIds.length === 0) {
+        throw new BadRequestException('No valid metric IDs provided');
+      }
+
+      const validIds = metricIds.filter((id) => Types.ObjectId.isValid(id));
+      if (validIds.length !== metricIds.length) {
+        const invalidIds = metricIds.filter(
+          (id) => !Types.ObjectId.isValid(id),
+        );
+        throw new BadRequestException(
+          `Invalid metric ID format: ${invalidIds.join(', ')}`,
+        );
+      }
+
       const deleteResults = await Promise.all(
-        metricIds.map((id) => this.metricService.deleteMetric(id)),
+        validIds.map((id) => this.metricService.deleteMetric(id)),
       );
 
-      const successCount = deleteResults.filter(Boolean).length;
-
-      return {
-        success: successCount > 0,
-        deletedCount: successCount,
-      };
-    } catch (_) {
+      const deletedCount = deleteResults.filter((result) => result).length;
+      return { success: true, deletedCount };
+    } catch (error: any) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      this.logger.error(
+        `Error deleting metrics in bulk: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
       throw new InternalServerErrorException(
         'Failed to delete metrics in bulk',
       );
