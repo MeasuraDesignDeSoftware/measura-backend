@@ -1,4 +1,4 @@
-import { Plan } from '../entities/plan.entity';
+import { Plan } from '@domain/plans/entities/plan.entity';
 
 export const PLAN_REPOSITORY = 'PLAN_REPOSITORY';
 

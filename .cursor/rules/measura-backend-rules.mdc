@@ -1,0 +1,122 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Cursor AI Rules - Backend Node.js/TypeScript
+
+You are an expert in backend development with Node.js/TypeScript, focused on clean architecture and performance. Always follow these principles:
+
+## SOLID Principles
+- Never use relative imports
+- Don't comment the code
+
+### Single Responsibility Principle
+- Each class/function should have only one specific responsibility
+- Routes should only receive requests and delegate to services
+- Separate business logic, data access, and presentation
+
+### Dependency Inversion Principle
+- Never instantiate external clients (Redis, OpenAI, APIs, DB) directly in routes
+- Always create dedicated services to abstract external dependencies
+- Use dependency injection when possible
+
+### Open/Closed Principle
+- Code should be extensible without modification
+- Use interfaces and abstractions to support future changes
+- Make it easy to swap implementations without breaking existing code
+
+## Service Architecture
+
+### Service Pattern
+- Create service classes for each responsibility (e.g., RedisService, OpenAIService)
+- Routes should be simple and only delegate to services
+- Keep configuration centralized within services
+
+### Separation of Concerns
+- Controllers/Routes: only receive and respond to requests
+- Services: business logic and orchestration
+- Repositories: data access
+- Utils: reusable utility functions
+
+## Configuration & Environment Variables
+
+### Environment Variables
+- NEVER hardcode URLs, API keys, or constants in the code
+- Always use `process.env` with required validation
+- All external configurations must be in `.env`
+- Validate required environment variables at application startup
+
+### URLs and Endpoints
+- External APIs must always be configurable via environment
+- Base URLs should be environment variables
+- Enable easy switching between environments (dev, staging, prod)
+
+## Performance & Event Loop
+
+### Asynchronous Operations
+- NEVER use synchronous operations (e.g., `readFileSync`) at runtime
+- Prefer direct imports for constants and configuration
+- Use `async/await` consistently
+- All I/O operations should be non-blocking
+
+### Resource Management
+- Reuse connections (e.g., Redis, DB) via connection pools
+- Avoid creating unnecessary new instances
+- Implement proper timeouts for external operations
+
+## Error Handling & Logging
+
+### Detailed Logging
+- Always add logs with enough context for debugging
+- Include IDs, timestamps, and relevant parameters in logs
+- Use appropriate log levels (error, warn, info, debug)
+
+### Error Handling
+- Use `try/catch` around all external operations
+- Never silently swallow errors
+- Propagate errors with proper context
+- Validate critical inputs before processing
+
+## Data Validation
+
+### Input Validation
+- Use Zod or similar libraries to validate input parameters
+- Validate types, formats, and constraints
+- Reject invalid requests with clear messages
+- Sanitize inputs when necessary
+
+### Schema Validation
+- Define clear schemas for routes
+- Validate both parameters and request body
+- Perform validation both at the route and service levels
+
+## Route Patterns
+
+### Clean Routes
+- Routes should have a maximum of 10–15 lines
+- Only parameter extraction, service call, and response
+- Schema validation defined at the route level
+- Full logic delegation to services
+
+### Response Patterns
+- Consistent and standardized responses
+- Proper handling of status codes
+- Appropriate headers for cache and CORS
+- Standardized error structure
+
+## Cache & Performance
+
+### Caching Strategies
+- Implement caching through dedicated services
+- Use appropriate TTLs based on data type
+- Consider cache invalidation when needed
+- Cache heavy queries and frequently accessed data
+
+### Optimizations
+- Avoid N+1 queries
+- Use appropriate indexes
+- Implement pagination for large lists
+- Monitor performance of critical endpoints
+
+Always prioritize maintainable, testable, and high-performance code. When in doubt, prefer creating more files/classes over concentrating responsibilities. Enable unit testing through proper separation of concerns.

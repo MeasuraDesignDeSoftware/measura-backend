@@ -20,13 +20,13 @@ import {
   IUserRepository,
   USER_REPOSITORY,
 } from '@domain/users/interfaces/user.repository.interface';
-import { LoginDto } from '@interfaces/api/dtos/auth/login.dto';
-import { FirebaseLoginDto } from '@interfaces/api/dtos/auth/firebase-login.dto';
-import { RegisterDto } from '@interfaces/api/dtos/auth/register.dto';
-import { RefreshTokenDto } from '@interfaces/api/dtos/auth/refresh-token.dto';
-import { PasswordResetRequestDto } from '@interfaces/api/dtos/auth/password-reset-request.dto';
-import { PasswordResetDto } from '@interfaces/api/dtos/auth/password-reset.dto';
-import { AuthResponseDto } from '@interfaces/api/dtos/auth/auth-response.dto';
+import { LoginDto } from '@application/auth/dtos/login.dto';
+import { FirebaseLoginDto } from '@application/auth/dtos/firebase-login.dto';
+import { RegisterDto } from '@application/auth/dtos/register.dto';
+import { RefreshTokenDto } from '@application/auth/dtos/refresh-token.dto';
+import { PasswordResetRequestDto } from '@application/auth/dtos/password-reset-request.dto';
+import { PasswordResetDto } from '@application/auth/dtos/password-reset.dto';
+import { AuthResponseDto } from '@application/auth/dtos/auth-response.dto';
 import { FirebaseAdminService } from '@infrastructure/external-services/firebase/firebase-admin.service';
 import { EmailService } from '@infrastructure/external-services/email/email.service';
 import * as admin from 'firebase-admin';
@@ -70,7 +70,10 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto): Promise<AuthResponseDto> {
-    const user = await this.validateUser(loginDto.login, loginDto.password);
+    const user = await this.validateUser(
+      loginDto.usernameOrEmail,
+      loginDto.password,
+    );
     return this.generateToken(user);
   }
 
@@ -99,7 +102,7 @@ export class AuthService {
       username: registerDto.username,
       password: hashedPassword,
       provider: AuthProvider.LOCAL,
-      role: UserRole.USER,
+      role: registerDto.role || UserRole.USER,
       isActive: true,
       isEmailVerified: false,
     });
@@ -438,38 +441,7 @@ export class AuthService {
     const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
     await this.userRepository.updateRefreshToken(userId, refreshTokenHash);
 
-    const expiresInStr =
-      this.configService.get<string>('app.jwt.expiresIn') || '1h';
-    let expiresIn = 3600; // Default to 1 hour (in seconds)
-
-    const timeUnits: Record<string, number> = {
-      s: 1, // seconds
-      m: 60, // minutes
-      h: 3600, // hours
-      d: 86400, // days
-      w: 604800, // weeks
-    };
-
-    const match = expiresInStr.match(/^(\d+)([smhdw])$/);
-    if (match) {
-      const value = parseInt(match[1], 10);
-      const unit = match[2];
-      if (
-        unit === 's' ||
-        unit === 'm' ||
-        unit === 'h' ||
-        unit === 'd' ||
-        unit === 'w'
-      ) {
-        expiresIn = value * timeUnits[unit];
-      }
-    }
-
-    return {
-      accessToken,
-      refreshToken,
-      expiresIn,
-    };
+    return AuthResponseDto.fromUser(user, accessToken, refreshToken);
   }
 
   private async generateUniqueUsername(baseUsername: string): Promise<string> {

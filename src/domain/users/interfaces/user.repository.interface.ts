@@ -1,4 +1,4 @@
-import { User } from '../entities/user.entity';
+import { User } from '@domain/users/entities/user.entity';
 
 export const USER_REPOSITORY = 'USER_REPOSITORY';
 

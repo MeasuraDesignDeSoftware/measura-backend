@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Schema as MongooseSchema } from 'mongoose';
-import { ObjectiveStatus } from '@domain/objectives/entities/objective.entity';
+import { ObjectiveStatus } from '@domain/gqm/entities/objective.entity';
 
 @Schema({ timestamps: true })
 export class ObjectiveDocument extends Document {
