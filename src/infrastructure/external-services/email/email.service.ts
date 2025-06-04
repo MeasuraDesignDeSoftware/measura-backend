@@ -23,7 +23,6 @@ export class EmailService {
       process.cwd(),
       'src/infrastructure/external-services/email/templates',
     );
-
     this.defaultTemplates = {
       'verification-email': `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
