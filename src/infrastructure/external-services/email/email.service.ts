@@ -203,10 +203,37 @@ export class EmailService {
       const errorMessage =
         'Email service not properly initialized, cannot send email';
       this.logger.warn(errorMessage);
+      this.logger.debug('Email configuration check:', {
+        hasTransporter: !!this.transporter,
+        isConfigValid: this.isConfigValid,
+        host: this.configService.get<string>('app.email.host'),
+        port: this.configService.get<string>('app.email.port'),
+        user: this.configService.get<string>('app.email.user')
+          ? 'configured'
+          : 'missing',
+        pass: this.configService.get<string>('app.email.pass')
+          ? 'configured'
+          : 'missing',
+      });
       throw new ServiceUnavailableException(errorMessage);
     }
 
     try {
+      this.logger.log(
+        `Attempting to send email to ${to} with subject: ${subject}`,
+      );
+
+      // Development: Log email content to console
+      if (process.env.NODE_ENV === 'development') {
+        console.log('\n=== EMAIL CONTENT (Development) ===');
+        console.log('To:', to);
+        console.log('From:', this.from);
+        console.log('Subject:', subject);
+        console.log('HTML Content:');
+        console.log(html);
+        console.log('=====================================\n');
+      }
+
       await this.transporter.sendMail({
         from: this.from,
         to,
@@ -220,6 +247,7 @@ export class EmailService {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Failed to send email to ${to}: ${errorMessage}`);
+      this.logger.error('Email send error details:', error);
       throw new ServiceUnavailableException(
         `Failed to send email: ${errorMessage}`,
       );

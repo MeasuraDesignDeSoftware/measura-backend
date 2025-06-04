@@ -16,6 +16,7 @@ import { RegisterDto } from '@application/auth/dtos/register.dto';
 import { RefreshTokenDto } from '@application/auth/dtos/refresh-token.dto';
 import { PasswordResetRequestDto } from '@application/auth/dtos/password-reset-request.dto';
 import { PasswordResetDto } from '@application/auth/dtos/password-reset.dto';
+import { ResendVerificationDto } from '@application/auth/dtos/resend-verification.dto';
 import { Public } from '@shared/utils/decorators/public.decorator';
 import { RateLimitGuard } from '@shared/utils/guards/rate-limit.guard';
 
@@ -105,5 +106,48 @@ export class AuthController {
   async verifyEmail(@Query('token') token: string) {
     await this.authService.verifyEmail(token);
     return { message: 'Email has been verified successfully' };
+  }
+
+  @Public()
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resend verification email' })
+  @ApiResponse({ status: 200, description: 'Verification email sent' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  async resendVerificationEmail(
+    @Body() resendVerificationDto: ResendVerificationDto,
+  ) {
+    await this.authService.resendVerificationEmail(resendVerificationDto.email);
+    return {
+      message:
+        'If this email is registered and unverified, a verification email has been sent.',
+    };
+  }
+
+  @Public()
+  @Post('test-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Test email service (development only)' })
+  @ApiResponse({ status: 200, description: 'Test email sent' })
+  @ApiResponse({ status: 503, description: 'Email service unavailable' })
+  async testEmail(@Body() body: { email: string }) {
+    try {
+      await this.authService.testEmailService(body.email);
+      return { message: 'Test email sent successfully' };
+    } catch (error) {
+      return {
+        message: 'Email service test failed',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  @Public()
+  @Get('debug-email-config')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Debug email configuration (development only)' })
+  @ApiResponse({ status: 200, description: 'Email configuration details' })
+  debugEmailConfig() {
+    return this.authService.getEmailDebugInfo();
   }
 }

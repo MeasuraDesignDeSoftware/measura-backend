@@ -6,6 +6,7 @@ import {
   ConflictException,
   Logger,
   InternalServerErrorException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -58,6 +59,12 @@ export class AuthService {
     if (user.provider !== AuthProvider.LOCAL) {
       throw new BadRequestException(
         `This account was created using ${user.provider} authentication`,
+      );
+    }
+
+    if (!user.isEmailVerified) {
+      throw new UnauthorizedException(
+        'Please verify your email address before logging in. Check your inbox for a verification email.',
       );
     }
 
@@ -120,9 +127,16 @@ export class AuthService {
             newUser.email,
             verificationToken,
           );
+          this.logger.log(
+            `Verification email sent successfully to ${newUser.email}`,
+          );
         } catch (error) {
           this.logger.error(
             `Failed to send verification email to ${newUser.email}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          );
+          // Don't throw error here - user is still created, they can request resend
+          this.logger.warn(
+            `User ${userId} created but verification email failed to send`,
           );
         }
       }
@@ -411,6 +425,89 @@ export class AuthService {
       );
       throw new InternalServerErrorException('Failed to verify email');
     }
+  }
+
+  async resendVerificationEmail(email: string): Promise<void> {
+    const user = await this.userRepository.findByEmail(email);
+
+    if (!user) {
+      // Don't reveal if email exists for security reasons
+      this.logger.debug(
+        `Verification email resend requested for non-existent email: ${email}`,
+      );
+      return;
+    }
+
+    if (user.provider !== AuthProvider.LOCAL) {
+      throw new BadRequestException(
+        'This account was not created with email/password',
+      );
+    }
+
+    if (user.isEmailVerified) {
+      throw new BadRequestException('Email is already verified');
+    }
+
+    // Generate new verification token
+    const verificationToken = String(uuidv4());
+    const hashedVerificationToken = await bcrypt.hash(verificationToken, 10);
+    const verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    if (user._id && typeof user._id.toString === 'function') {
+      const userId = user._id.toString();
+      await this.userRepository.setVerificationToken(
+        userId,
+        hashedVerificationToken,
+        verificationTokenExpires,
+      );
+
+      try {
+        await this.emailService.sendVerificationEmail(email, verificationToken);
+        this.logger.log(`Verification email resent to ${email}`);
+      } catch (error) {
+        this.logger.error(
+          `Failed to resend verification email to ${email}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        );
+        throw new ServiceUnavailableException(
+          'Failed to send verification email',
+        );
+      }
+    }
+  }
+
+  async testEmailService(email: string): Promise<void> {
+    try {
+      const testSubject = 'Measura Email Service Test';
+      const testHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">Email Service Test</h2>
+          <p>This is a test email to verify that the Measura email service is working correctly.</p>
+          <p>If you received this email, the email configuration is working properly.</p>
+          <p>Time sent: ${new Date().toISOString()}</p>
+          <p>Best regards,<br>The Measura Team</p>
+        </div>
+      `;
+
+      await this.emailService.sendEmail(email, testSubject, testHtml);
+      this.logger.log(`Test email sent successfully to ${email}`);
+    } catch (error) {
+      this.logger.error(
+        `Test email failed for ${email}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      throw error;
+    }
+  }
+
+  getEmailDebugInfo(): Record<string, any> {
+    return {
+      emailHost: this.configService.get<string>('app.email.host'),
+      emailPort: this.configService.get<number>('app.email.port'),
+      emailUser: this.configService.get<string>('app.email.user'),
+      emailFrom: this.configService.get<string>('app.email.from'),
+      frontendUrl: this.configService.get<string>('app.email.frontendUrl'),
+      hasEmailPassword: !!this.configService.get<string>('app.email.pass'),
+      timestamp: new Date().toISOString(),
+    };
   }
 
   private async generateToken(user: User): Promise<AuthResponseDto> {
