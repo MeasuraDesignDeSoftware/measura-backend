@@ -78,5 +78,5 @@ out
 
 # Firebase
 firebase-service-account.json
-
+.cursor/
 TODO.md
