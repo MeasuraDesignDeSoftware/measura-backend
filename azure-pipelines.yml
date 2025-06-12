@@ -14,7 +14,6 @@ variables:
     value: '20.x'
 
 stages:
-  # Build Stage
   - stage: Build
     displayName: 'Build Stage'
     jobs:
@@ -27,18 +26,23 @@ stages:
             displayName: 'Install Node.js $(nodeVersion)'
 
           - script: |
+              echo "Installing Yarn..."
+              npm install -g yarn
+            displayName: 'Install Yarn'
+
+          - script: |
               echo "Installing dependencies..."
-              npm ci
+              yarn install --frozen-lockfile
             displayName: 'Install dependencies'
 
           - script: |
               echo "Running ESLint..."
-              npm run lint
+              yarn lint
             displayName: 'Run linting'
 
           - script: |
               echo "Building application..."
-              npm run build
+              yarn build
             displayName: 'Build application'
 
           - task: PublishBuildArtifacts@1
@@ -53,13 +57,6 @@ stages:
               artifactName: 'package-json'
             displayName: 'Publish package.json'
 
-          - task: PublishBuildArtifacts@1
-            inputs:
-              pathToPublish: 'package-lock.json'
-              artifactName: 'package-lock'
-            displayName: 'Publish package-lock.json'
-
-  # Test Stage
   - stage: Test
     displayName: 'Test Stage'
     dependsOn: Build
@@ -74,13 +71,18 @@ stages:
             displayName: 'Install Node.js $(nodeVersion)'
 
           - script: |
+              echo "Installing Yarn..."
+              npm install -g yarn
+            displayName: 'Install Yarn'
+
+          - script: |
               echo "Installing dependencies..."
-              npm ci
+              yarn install --frozen-lockfile
             displayName: 'Install dependencies'
 
           - script: |
               echo "Running unit tests with coverage..."
-              npm run test:cov
+              yarn test:cov
             displayName: 'Run unit tests with coverage'
 
           - task: PublishTestResults@2
@@ -106,22 +108,25 @@ stages:
             displayName: 'Install Node.js $(nodeVersion)'
 
           - script: |
+              echo "Installing Yarn..."
+              npm install -g yarn
+            displayName: 'Install Yarn'
+
+          - script: |
               echo "Installing dependencies..."
-              npm ci
+              yarn install --frozen-lockfile
             displayName: 'Install dependencies'
 
           - script: |
               echo "Running integration tests..."
-              npm run test:e2e
+              yarn test:e2e
             displayName: 'Run integration tests'
 
-  # Deploy Stage
   - stage: Deploy
     displayName: 'Deploy Stage'
     dependsOn: Test
     condition: succeeded()
     jobs:
-      # Deploy to Production
       - deployment: DeployToProduction
         displayName: 'Deploy to Production'
         condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
@@ -142,20 +147,14 @@ stages:
                     downloadPath: '$(System.ArtifactsDirectory)'
                   displayName: 'Download package.json'
 
-                - task: DownloadBuildArtifacts@0
-                  inputs:
-                    artifactName: 'package-lock'
-                    downloadPath: '$(System.ArtifactsDirectory)'
-                  displayName: 'Download package-lock.json'
-
                 - task: AzureWebApp@1
                   inputs:
                     azureSubscription: '$(azureServiceConnection)'
                     appType: 'webAppLinux'
                     appName: '$(appServiceName)'
                     package: '$(System.ArtifactsDirectory)'
-                    runtimeStack: 'NODE|20-lts' # 🔄 atualizado aqui
-                    startUpCommand: 'npm run start:prod'
+                    runtimeStack: 'NODE|20-lts'
+                    startUpCommand: 'yarn start:prod'
                   displayName: 'Deploy to Azure App Service'
 
                 - script: |
@@ -163,7 +162,6 @@ stages:
                     echo "App Service URL: https://$(appServiceName).azurewebsites.net"
                   displayName: 'Deployment Summary'
 
-      # Deploy to Development
       - deployment: DeployToDevelopment
         displayName: 'Deploy to Development'
         condition: eq(variables['Build.SourceBranch'], 'refs/heads/develop')
@@ -184,20 +182,14 @@ stages:
                     downloadPath: '$(System.ArtifactsDirectory)'
                   displayName: 'Download package.json'
 
-                - task: DownloadBuildArtifacts@0
-                  inputs:
-                    artifactName: 'package-lock'
-                    downloadPath: '$(System.ArtifactsDirectory)'
-                  displayName: 'Download package-lock.json'
-
                 - task: AzureWebApp@1
                   inputs:
                     azureSubscription: '$(azureServiceConnection)'
                     appType: 'webAppLinux'
                     appName: '$(appServiceName)'
                     package: '$(System.ArtifactsDirectory)'
-                    runtimeStack: 'NODE|20-lts' # 🔄 atualizado aqui
-                    startUpCommand: 'npm run start:prod'
+                    runtimeStack: 'NODE|20-lts'
+                    startUpCommand: 'yarn start:prod'
                   displayName: 'Deploy to Azure App Service'
 
                 - script: |
@@ -205,7 +197,6 @@ stages:
                     echo "App Service URL: https://$(appServiceName).azurewebsites.net"
                   displayName: 'Deployment Summary'
 
-      # Deploy to Staging
       - deployment: DeployToStaging
         displayName: 'Deploy to Staging'
         condition: and(succeeded(), ne(variables['Build.SourceBranch'], 'refs/heads/main'), ne(variables['Build.SourceBranch'], 'refs/heads/develop'))
@@ -226,20 +217,14 @@ stages:
                     downloadPath: '$(System.ArtifactsDirectory)'
                   displayName: 'Download package.json'
 
-                - task: DownloadBuildArtifacts@0
-                  inputs:
-                    artifactName: 'package-lock'
-                    downloadPath: '$(System.ArtifactsDirectory)'
-                  displayName: 'Download package-lock.json'
-
                 - task: AzureWebApp@1
                   inputs:
                     azureSubscription: '$(azureServiceConnection)'
                     appType: 'webAppLinux'
                     appName: '$(appServiceName)'
                     package: '$(System.ArtifactsDirectory)'
-                    runtimeStack: 'NODE|20-lts' # 🔄 atualizado aqui
-                    startUpCommand: 'npm run start:prod'
+                    runtimeStack: 'NODE|20-lts'
+                    startUpCommand: 'yarn start:prod'
                   displayName: 'Deploy to Azure App Service'
 
                 - script: |
