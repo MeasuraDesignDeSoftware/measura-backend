@@ -1,6 +1,19 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from '../src/app.controller';
 
+interface HealthResponse {
+  status: string;
+  timestamp: string;
+  uptime: number;
+  message: string;
+}
+
+interface VersionResponse {
+  version: string;
+  nodeVersion: string;
+  environment: string;
+}
+
 describe('AppController', () => {
   let appController: AppController;
 
@@ -12,30 +25,29 @@ describe('AppController', () => {
     appController = app.get<AppController>(AppController);
   });
 
-  describe('getHello', () => {
-    it('should return welcome message', () => {
-      expect(appController.getHello()).toBe('Measura API is running!');
-    });
-  });
-
-  describe('getHealth', () => {
+  describe('healthCheck', () => {
     it('should return health status object', () => {
-      const health = appController.getHealth();
+      const health = appController.healthCheck() as HealthResponse;
 
       expect(health).toHaveProperty('status', 'ok');
       expect(health).toHaveProperty('timestamp');
-      expect(health).toHaveProperty('environment');
+      expect(health).toHaveProperty('uptime');
+      expect(health).toHaveProperty('message', 'Application is running');
       expect(typeof health.timestamp).toBe('string');
+      expect(typeof health.uptime).toBe('number');
     });
+  });
 
-    it('should return correct environment', () => {
-      const originalEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = 'test';
+  describe('getVersion', () => {
+    it('should return version information', () => {
+      const version = appController.getVersion() as VersionResponse;
 
-      const health = appController.getHealth();
-      expect(health.environment).toBe('test');
-
-      process.env.NODE_ENV = originalEnv;
+      expect(version).toHaveProperty('version');
+      expect(version).toHaveProperty('nodeVersion');
+      expect(version).toHaveProperty('environment');
+      expect(typeof version.version).toBe('string');
+      expect(typeof version.nodeVersion).toBe('string');
+      expect(typeof version.environment).toBe('string');
     });
   });
 });
