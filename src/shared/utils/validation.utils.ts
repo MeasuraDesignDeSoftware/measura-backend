@@ -1,3 +1,5 @@
+import { BadRequestException } from '@nestjs/common';
+
 export class ValidationUtils {
   static isValidEmail(email: string): boolean {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -44,5 +46,52 @@ export class ValidationUtils {
       result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return result;
+  }
+
+  static validateEmail(email: string): boolean {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  }
+
+  static validatePassword(password: string): void {
+    if (password.length < 8) {
+      throw new BadRequestException(
+        'Password must be at least 8 characters long',
+      );
+    }
+
+    if (!/[A-Z]/.test(password)) {
+      throw new BadRequestException(
+        'Password must contain at least one uppercase letter',
+      );
+    }
+
+    if (!/[a-z]/.test(password)) {
+      throw new BadRequestException(
+        'Password must contain at least one lowercase letter',
+      );
+    }
+
+    if (!/[0-9]/.test(password)) {
+      throw new BadRequestException(
+        'Password must contain at least one number',
+      );
+    }
+
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+      throw new BadRequestException(
+        'Password must contain at least one special character',
+      );
+    }
+  }
+
+  static validatePhoneNumber(phoneNumber: string): boolean {
+    const phoneRegex = /^\+?[1-9]\d{7,14}$/;
+    return phoneRegex.test(phoneNumber);
+  }
+
+  static validateDate(date: string): boolean {
+    const dateObj = new Date(date);
+    return dateObj instanceof Date && !isNaN(dateObj.getTime());
   }
 }

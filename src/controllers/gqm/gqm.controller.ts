@@ -55,9 +55,11 @@ export class GQMController {
     try {
       return await this.gqmService.getAllGQMTrees(user.id);
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       throw new InternalServerErrorException(
         'Failed to retrieve GQM trees',
-        error,
+        errorMessage,
       );
     }
   }
