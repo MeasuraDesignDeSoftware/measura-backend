@@ -119,16 +119,97 @@ stages:
   - stage: Deploy
     displayName: 'Deploy Stage'
     dependsOn: Test
-    condition: and(succeeded(), in(variables['Build.SourceBranch'], 'refs/heads/main', 'refs/heads/develop', 'refs/heads/release'))
+    condition: succeeded()
     jobs:
-      - deployment: DeployToAzure
-        displayName: 'Deploy to Azure App Service'
-        environment: ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/main') }}:
-          Production
-        ${{ elseif eq(variables['Build.SourceBranch'], 'refs/heads/develop') }}:
-          Development
-        ${{ else }}:
-          Staging
+      # Deploy to Production
+      - deployment: DeployToProduction
+        displayName: 'Deploy to Production'
+        condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
+        environment: Production
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: DownloadBuildArtifacts@0
+                  inputs:
+                    artifactName: 'application-dist'
+                    downloadPath: '$(System.ArtifactsDirectory)'
+                  displayName: 'Download application artifacts'
+
+                - task: DownloadBuildArtifacts@0
+                  inputs:
+                    artifactName: 'package-json'
+                    downloadPath: '$(System.ArtifactsDirectory)'
+                  displayName: 'Download package.json'
+
+                - task: DownloadBuildArtifacts@0
+                  inputs:
+                    artifactName: 'package-lock'
+                    downloadPath: '$(System.ArtifactsDirectory)'
+                  displayName: 'Download package-lock.json'
+
+                - task: AzureWebApp@1
+                  inputs:
+                    azureSubscription: '$(azureServiceConnection)'
+                    appType: 'webAppLinux'
+                    appName: '$(appServiceName)'
+                    package: '$(System.ArtifactsDirectory)'
+                    runtimeStack: 'NODE|18-lts'
+                    startUpCommand: 'npm run start:prod'
+                  displayName: 'Deploy to Azure App Service'
+
+                - script: |
+                    echo "Deployment completed for branch: $(Build.SourceBranch)"
+                    echo "App Service URL: https://$(appServiceName).azurewebsites.net"
+                  displayName: 'Deployment Summary'
+
+      # Deploy to Development
+      - deployment: DeployToDevelopment
+        displayName: 'Deploy to Development'
+        condition: eq(variables['Build.SourceBranch'], 'refs/heads/develop')
+        environment: Development
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: DownloadBuildArtifacts@0
+                  inputs:
+                    artifactName: 'application-dist'
+                    downloadPath: '$(System.ArtifactsDirectory)'
+                  displayName: 'Download application artifacts'
+
+                - task: DownloadBuildArtifacts@0
+                  inputs:
+                    artifactName: 'package-json'
+                    downloadPath: '$(System.ArtifactsDirectory)'
+                  displayName: 'Download package.json'
+
+                - task: DownloadBuildArtifacts@0
+                  inputs:
+                    artifactName: 'package-lock'
+                    downloadPath: '$(System.ArtifactsDirectory)'
+                  displayName: 'Download package-lock.json'
+
+                - task: AzureWebApp@1
+                  inputs:
+                    azureSubscription: '$(azureServiceConnection)'
+                    appType: 'webAppLinux'
+                    appName: '$(appServiceName)'
+                    package: '$(System.ArtifactsDirectory)'
+                    runtimeStack: 'NODE|18-lts'
+                    startUpCommand: 'npm run start:prod'
+                  displayName: 'Deploy to Azure App Service'
+
+                - script: |
+                    echo "Deployment completed for branch: $(Build.SourceBranch)"
+                    echo "App Service URL: https://$(appServiceName).azurewebsites.net"
+                  displayName: 'Deployment Summary'
+
+      # Deploy to Staging (outros branches)
+      - deployment: DeployToStaging
+        displayName: 'Deploy to Staging'
+        condition: and(succeeded(), ne(variables['Build.SourceBranch'], 'refs/heads/main'), ne(variables['Build.SourceBranch'], 'refs/heads/develop'))
+        environment: Staging
         strategy:
           runOnce:
             deploy:
