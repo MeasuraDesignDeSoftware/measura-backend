@@ -175,7 +175,6 @@ export class AuthService {
       const decodedToken = await this.firebaseAdminService.verifyIdToken(
         firebaseLoginDto.idToken,
       );
-
       const firebaseUser = this.extractFirebaseUserInfo(decodedToken);
       let user = await this.userRepository.findByProviderAndEmail(
         AuthProvider.GOOGLE,
