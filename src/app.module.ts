@@ -23,6 +23,7 @@ import { OrganizationsControllerModule } from '@controllers/organizations/organi
 import { ProjectsControllerModule } from '@controllers/projects/projects.module';
 
 import appConfig from '@app/config/app.config';
+
 import { winstonConfig } from '@app/config/winston.config';
 
 @Module({
