@@ -50,6 +50,7 @@ describe('API Health Check (e2e)', () => {
 
   describe('Health Check', () => {
     it('should return 200 OK with health status', () => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       return request(app.getHttpServer())
         .get('/health')
         .expect(200)
@@ -65,6 +66,7 @@ describe('API Health Check (e2e)', () => {
     });
 
     it('should return valid version information', () => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       return request(app.getHttpServer())
         .get('/version')
         .expect(200)
