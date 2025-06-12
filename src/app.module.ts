@@ -3,6 +3,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { WinstonModule } from 'nest-winston';
 
+import { AppController } from './app.controller';
+
 // Business Logic Modules
 import { AuthModule } from '@app/modules/auth/auth.module';
 import { GQMModule } from '@app/modules/gqm/gqm.module';
@@ -64,7 +66,7 @@ import { winstonConfig } from '@app/config/winston.config';
     OrganizationsControllerModule,
     ProjectsControllerModule,
   ],
-  controllers: [],
+  controllers: [AppController],
   providers: [],
 })
 export class AppModule {}

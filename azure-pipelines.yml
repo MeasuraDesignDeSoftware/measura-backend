@@ -1,0 +1,167 @@
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+      - release
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  - group: azure-deployment-variables
+  - name: nodeVersion
+    value: '18.x'
+
+stages:
+  # Build Stage
+  - stage: Build
+    displayName: 'Build Stage'
+    jobs:
+      - job: BuildJob
+        displayName: 'Build Application'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '$(nodeVersion)'
+            displayName: 'Install Node.js $(nodeVersion)'
+
+          - script: |
+              echo "Installing dependencies..."
+              npm ci
+            displayName: 'Install dependencies'
+
+          - script: |
+              echo "Running ESLint..."
+              npm run lint
+            displayName: 'Run linting'
+
+          - script: |
+              echo "Building application..."
+              npm run build
+            displayName: 'Build application'
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathToPublish: 'dist'
+              artifactName: 'application-dist'
+            displayName: 'Publish build artifacts'
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathToPublish: 'package.json'
+              artifactName: 'package-json'
+            displayName: 'Publish package.json'
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathToPublish: 'package-lock.json'
+              artifactName: 'package-lock'
+            displayName: 'Publish package-lock.json'
+
+  # Test Stage
+  - stage: Test
+    displayName: 'Test Stage'
+    dependsOn: Build
+    condition: succeeded()
+    jobs:
+      - job: UnitTests
+        displayName: 'Run Unit Tests'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '$(nodeVersion)'
+            displayName: 'Install Node.js $(nodeVersion)'
+
+          - script: |
+              echo "Installing dependencies..."
+              npm ci
+            displayName: 'Install dependencies'
+
+          - script: |
+              echo "Running unit tests with coverage..."
+              npm run test:cov
+            displayName: 'Run unit tests with coverage'
+
+          - task: PublishTestResults@2
+            inputs:
+              testResultsFormat: 'JUnit'
+              testResultsFiles: '**/junit.xml'
+            displayName: 'Publish unit test results'
+            condition: always()
+
+          - task: PublishCodeCoverageResults@1
+            inputs:
+              codeCoverageTool: 'Cobertura'
+              summaryFileLocation: '**/coverage/cobertura-coverage.xml'
+            displayName: 'Publish code coverage'
+            condition: always()
+
+      - job: IntegrationTests
+        displayName: 'Run Integration Tests'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '$(nodeVersion)'
+            displayName: 'Install Node.js $(nodeVersion)'
+
+          - script: |
+              echo "Installing dependencies..."
+              npm ci
+            displayName: 'Install dependencies'
+
+          - script: |
+              echo "Running integration tests..."
+              npm run test:e2e
+            displayName: 'Run integration tests'
+
+  # Deploy Stage
+  - stage: Deploy
+    displayName: 'Deploy Stage'
+    dependsOn: Test
+    condition: and(succeeded(), in(variables['Build.SourceBranch'], 'refs/heads/main', 'refs/heads/develop', 'refs/heads/release'))
+    jobs:
+      - deployment: DeployToAzure
+        displayName: 'Deploy to Azure App Service'
+        environment: ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/main') }}:
+          Production
+        ${{ elseif eq(variables['Build.SourceBranch'], 'refs/heads/develop') }}:
+          Development
+        ${{ else }}:
+          Staging
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: DownloadBuildArtifacts@0
+                  inputs:
+                    artifactName: 'application-dist'
+                    downloadPath: '$(System.ArtifactsDirectory)'
+                  displayName: 'Download application artifacts'
+
+                - task: DownloadBuildArtifacts@0
+                  inputs:
+                    artifactName: 'package-json'
+                    downloadPath: '$(System.ArtifactsDirectory)'
+                  displayName: 'Download package.json'
+
+                - task: DownloadBuildArtifacts@0
+                  inputs:
+                    artifactName: 'package-lock'
+                    downloadPath: '$(System.ArtifactsDirectory)'
+                  displayName: 'Download package-lock.json'
+
+                - task: AzureWebApp@1
+                  inputs:
+                    azureSubscription: '$(azureServiceConnection)'
+                    appType: 'webAppLinux'
+                    appName: '$(appServiceName)'
+                    package: '$(System.ArtifactsDirectory)'
+                    runtimeStack: 'NODE|18-lts'
+                    startUpCommand: 'npm run start:prod'
+                  displayName: 'Deploy to Azure App Service'
+
+                - script: |
+                    echo "Deployment completed for branch: $(Build.SourceBranch)"
+                    echo "App Service URL: https://$(appServiceName).azurewebsites.net"
+                  displayName: 'Deployment Summary'

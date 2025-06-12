@@ -65,10 +65,7 @@ export class ProjectController {
     status: 200,
     description: 'Return all projects.',
   })
-  async findAll(
-    @Query('organizationId') organizationId?: string,
-    @Request() req?: AuthenticatedRequest,
-  ) {
+  async findAll(@Query('organizationId') organizationId?: string) {
     if (organizationId) {
       return this.projectService.findByOrganization(organizationId);
     }
@@ -149,7 +146,7 @@ export class ProjectController {
     status: 201,
     description: 'The project version has been successfully created.',
   })
-  async createVersion(@Param('id') id: string) {
+  async createVersion(@Param('id') id: string): Promise<unknown> {
     return this.projectService.createVersion(id);
   }
 }
