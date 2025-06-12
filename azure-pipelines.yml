@@ -11,7 +11,7 @@ pool:
 variables:
   - group: azure-deployment-variables
   - name: nodeVersion
-    value: '18.x'
+    value: '20.x'
 
 stages:
   # Build Stage
@@ -154,7 +154,7 @@ stages:
                     appType: 'webAppLinux'
                     appName: '$(appServiceName)'
                     package: '$(System.ArtifactsDirectory)'
-                    runtimeStack: 'NODE|18-lts'
+                    runtimeStack: 'NODE|20-lts' # 🔄 atualizado aqui
                     startUpCommand: 'npm run start:prod'
                   displayName: 'Deploy to Azure App Service'
 
@@ -196,7 +196,7 @@ stages:
                     appType: 'webAppLinux'
                     appName: '$(appServiceName)'
                     package: '$(System.ArtifactsDirectory)'
-                    runtimeStack: 'NODE|18-lts'
+                    runtimeStack: 'NODE|20-lts' # 🔄 atualizado aqui
                     startUpCommand: 'npm run start:prod'
                   displayName: 'Deploy to Azure App Service'
 
@@ -205,7 +205,7 @@ stages:
                     echo "App Service URL: https://$(appServiceName).azurewebsites.net"
                   displayName: 'Deployment Summary'
 
-      # Deploy to Staging (outros branches)
+      # Deploy to Staging
       - deployment: DeployToStaging
         displayName: 'Deploy to Staging'
         condition: and(succeeded(), ne(variables['Build.SourceBranch'], 'refs/heads/main'), ne(variables['Build.SourceBranch'], 'refs/heads/develop'))
@@ -238,7 +238,7 @@ stages:
                     appType: 'webAppLinux'
                     appName: '$(appServiceName)'
                     package: '$(System.ArtifactsDirectory)'
-                    runtimeStack: 'NODE|18-lts'
+                    runtimeStack: 'NODE|20-lts' # 🔄 atualizado aqui
                     startUpCommand: 'npm run start:prod'
                   displayName: 'Deploy to Azure App Service'
 
