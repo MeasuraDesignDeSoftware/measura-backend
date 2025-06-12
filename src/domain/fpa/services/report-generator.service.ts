@@ -2,7 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { Estimate } from '@domain/fpa/entities/estimate.entity';
 import { FunctionPointCalculator } from '@domain/fpa/services/function-point-calculator.service';
 import { TeamSizeEstimationService } from '@domain/fpa/services/team-size-estimation.service';
-import { TrendAnalysisService, TrendMetric } from '@domain/fpa/services/trend-analysis.service';
+import {
+  TrendAnalysisService,
+  TrendMetric,
+} from '@domain/fpa/services/trend-analysis.service';
 
 export interface DetailedReportSection {
   title: string;
@@ -62,7 +65,8 @@ export class ReportGeneratorService {
 
     // Prepare detailed GSC section
     const gscDetails = gscFactors.map((factor, index) => {
-      return `${factor.name} (${factor.id}): ${estimate.generalSystemCharacteristics[index] || 0} - ${factor.description}`;
+      const gscValue = estimate.generalSystemCharacteristics?.[index] || 0;
+      return `${factor.name} (${factor.id}): ${gscValue} - ${factor.description}`;
     });
 
     // Calculate team size estimates
@@ -144,10 +148,11 @@ export class ReportGeneratorService {
   }
 
   generateSummaryReport(estimate: Estimate): SummaryReport {
-    const gscTotal = estimate.generalSystemCharacteristics.reduce(
-      (sum, val) => sum + val,
-      0,
-    );
+    const gscTotal =
+      estimate.generalSystemCharacteristics?.reduce(
+        (sum, val) => sum + val,
+        0,
+      ) || 0;
 
     return {
       title: `Function Point Analysis Summary: ${estimate.name}`,

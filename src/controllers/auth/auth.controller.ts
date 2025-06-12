@@ -7,8 +7,14 @@ import {
   Get,
   Query,
   UseGuards,
+  Request,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { AuthService } from '@application/auth/use-cases/auth.service';
 import { LoginDto } from '@application/auth/dtos/login.dto';
 import { FirebaseLoginDto } from '@application/auth/dtos/firebase-login.dto';
@@ -19,11 +25,29 @@ import { PasswordResetDto } from '@application/auth/dtos/password-reset.dto';
 import { ResendVerificationDto } from '@application/auth/dtos/resend-verification.dto';
 import { Public } from '@shared/utils/decorators/public.decorator';
 import { RateLimitGuard } from '@shared/utils/guards/rate-limit.guard';
+import { JwtAuthGuard } from '@shared/utils/guards/jwt-auth.guard';
+import { UserService } from '@application/users/use-cases/user.service';
+import { OrganizationService } from '@application/organizations/use-cases/organization.service';
+import { UserRole } from '@domain/users/entities/user.entity';
+import { Organization } from '@domain/organizations/entities/organization.entity';
+
+interface AuthenticatedRequest {
+  user: {
+    _id: string;
+    email: string;
+    role: UserRole;
+    organizationId?: string;
+  };
+}
 
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly userService: UserService,
+    private readonly organizationService: OrganizationService,
+  ) {}
 
   @Public()
   @Post('register')
@@ -149,5 +173,45 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Email configuration details' })
   debugEmailConfig() {
     return this.authService.getEmailDebugInfo();
+  }
+
+  @Get('profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current user profile with organization' })
+  @ApiResponse({
+    status: 200,
+    description: 'User profile retrieved successfully',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async getProfile(@Request() req: AuthenticatedRequest) {
+    const user = await this.userService.findOne(req.user._id);
+    let organization: Organization | null = null;
+
+    if (user.organizationId) {
+      try {
+        organization = await this.organizationService.findOne(
+          user.organizationId.toString(),
+        );
+      } catch {
+        // Organization not found, continue without it
+      }
+    }
+
+    return {
+      user: {
+        _id: user._id,
+        email: user.email,
+        username: user.username,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        isActive: user.isActive,
+        organizationId: user.organizationId,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+      organization,
+    };
   }
 }

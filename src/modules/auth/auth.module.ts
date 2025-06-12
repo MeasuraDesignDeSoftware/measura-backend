@@ -7,11 +7,13 @@ import { JwtStrategy } from '@shared/utils/strategies/jwt.strategy';
 import { FirebaseAdminService } from '@infrastructure/external-services/firebase/firebase-admin.service';
 import { EmailModule } from '@infrastructure/external-services/email/email.module';
 import { UsersModule } from '@app/modules/users/users.module';
+import { OrganizationsModule } from '@app/modules/organizations/organizations.module';
 import { AuthController } from '@controllers/auth/auth.controller';
 
 @Module({
   imports: [
     UsersModule,
+    OrganizationsModule,
     PassportModule,
     EmailModule,
     JwtModule.registerAsync({

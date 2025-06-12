@@ -82,7 +82,27 @@ async function bootstrap() {
   const swaggerPath = configService.get<string>('app.swagger.path') || 'api';
   SwaggerModule.setup(swaggerPath, app, document);
 
-  app.enableCors();
+  app.enableCors({
+    origin: [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      configService.get<string>('app.email.frontendUrl') ||
+        'http://localhost:3000',
+    ],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: [
+      'Origin',
+      'X-Requested-With',
+      'Content-Type',
+      'Accept',
+      'Authorization',
+      'Bearer',
+      'sec-ch-ua',
+      'sec-ch-ua-mobile',
+      'sec-ch-ua-platform',
+    ],
+    credentials: true,
+  });
 
   const configPort = configService.get<number>('app.port') || 8080;
   let port: number;

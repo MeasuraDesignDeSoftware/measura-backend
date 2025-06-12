@@ -11,12 +11,17 @@ import {
   Max,
   ArrayMaxSize,
   ArrayMinSize,
+  IsEnum,
+  IsPositive,
 } from 'class-validator';
+import { CountType } from '@domain/fpa/entities/estimate.entity';
 
 export class CreateEstimateDto {
   @ApiProperty({
-    description: 'The name of the estimate',
-    example: 'ERP System Function Point Analysis',
+    description: 'Name of the estimate',
+    example: 'Customer Management System v2.0',
+    minLength: 3,
+    maxLength: 100,
   })
   @IsNotEmpty()
   @IsString()
@@ -25,8 +30,11 @@ export class CreateEstimateDto {
   name: string;
 
   @ApiProperty({
-    description: 'The description of the estimate',
-    example: 'Function point analysis for the ERP system replacement project',
+    description: 'Detailed description of the estimate scope and objectives',
+    example:
+      'Function point analysis for the new customer management system including CRM integration and reporting features',
+    minLength: 10,
+    maxLength: 1000,
   })
   @IsNotEmpty()
   @IsString()
@@ -35,98 +43,177 @@ export class CreateEstimateDto {
   description: string;
 
   @ApiProperty({
-    description: 'The project ID this estimate belongs to',
-    example: '60a1e2c7b9b5a50d944b1e37',
+    description: 'Project identifier this estimate belongs to',
+    example: 'PROJ-2024-001',
   })
   @IsNotEmpty()
   @IsString()
   projectId: string;
 
   @ApiProperty({
-    description: 'The productivity factor (hours per function point)',
+    description: 'The type of function point count being performed',
+    enum: CountType,
+    example: CountType.DEVELOPMENT_PROJECT,
+  })
+  @IsNotEmpty()
+  @IsEnum(CountType)
+  countType: CountType;
+
+  @ApiProperty({
+    description: 'Definition of the application boundary from user perspective',
+    example:
+      'The system includes all modules for customer management, order processing, and inventory tracking. Excludes external payment gateway and shipping systems.',
+    minLength: 10,
+    maxLength: 2000,
+  })
+  @IsNotEmpty()
+  @IsString()
+  @MinLength(10)
+  @MaxLength(2000)
+  applicationBoundary: string;
+
+  @ApiProperty({
+    description:
+      'Definition of what functionality will be counted and measured',
+    example:
+      'Count includes all new functionality for customer registration, profile management, order creation, and basic reporting. Excludes data migration and system integration.',
+    minLength: 10,
+    maxLength: 2000,
+  })
+  @IsNotEmpty()
+  @IsString()
+  @MinLength(10)
+  @MaxLength(2000)
+  countingScope: string;
+
+  @ApiProperty({
+    description: 'Average daily working hours per person',
     example: 8,
     minimum: 1,
-    required: false,
+    maximum: 24,
+    default: 8,
   })
   @IsOptional()
   @IsNumber()
   @Min(1)
+  @Max(24)
+  averageDailyWorkingHours?: number;
+
+  @ApiProperty({
+    description: 'Number of people working on the project',
+    example: 4,
+    minimum: 1,
+    maximum: 100,
+  })
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(1)
+  @Max(100)
+  teamSize: number;
+
+  @ApiProperty({
+    description: 'Hourly rate in Brazilian Reais (BRL)',
+    example: 150.0,
+    minimum: 0.01,
+  })
+  @IsNotEmpty()
+  @IsNumber()
+  @IsPositive()
+  @Min(0.01)
+  hourlyRateBRL: number;
+
+  @ApiProperty({
+    description:
+      'Productivity factor for effort estimation (hours per function point)',
+    example: 10,
+    minimum: 1,
+    maximum: 100,
+    default: 10,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(100)
   productivityFactor?: number;
 
   @ApiProperty({
-    description: 'References to Internal Logical Files (ILFs)',
-    example: ['60a1e2c7b9b5a50d944b1e38', '60a1e2c7b9b5a50d944b1e39'],
-    required: false,
+    description:
+      'Array of Internal Logical File identifiers to include in estimate',
     type: [String],
+    required: false,
   })
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
+  @ArrayMinSize(0)
+  @ArrayMaxSize(100)
   internalLogicalFiles?: string[];
 
   @ApiProperty({
-    description: 'References to External Interface Files (EIFs)',
-    example: ['60a1e2c7b9b5a50d944b1e40', '60a1e2c7b9b5a50d944b1e41'],
-    required: false,
+    description:
+      'Array of External Interface File identifiers to include in estimate',
     type: [String],
+    required: false,
   })
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
+  @ArrayMinSize(0)
+  @ArrayMaxSize(100)
   externalInterfaceFiles?: string[];
 
   @ApiProperty({
-    description: 'References to External Inputs (EIs)',
-    example: ['60a1e2c7b9b5a50d944b1e42', '60a1e2c7b9b5a50d944b1e43'],
-    required: false,
+    description: 'Array of External Input identifiers to include in estimate',
     type: [String],
+    required: false,
   })
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
+  @ArrayMinSize(0)
+  @ArrayMaxSize(100)
   externalInputs?: string[];
 
   @ApiProperty({
-    description: 'References to External Outputs (EOs)',
-    example: ['60a1e2c7b9b5a50d944b1e44', '60a1e2c7b9b5a50d944b1e45'],
-    required: false,
+    description: 'Array of External Output identifiers to include in estimate',
     type: [String],
+    required: false,
   })
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
+  @ArrayMinSize(0)
+  @ArrayMaxSize(100)
   externalOutputs?: string[];
 
   @ApiProperty({
-    description: 'References to External Queries (EQs)',
-    example: ['60a1e2c7b9b5a50d944b1e46', '60a1e2c7b9b5a50d944b1e47'],
-    required: false,
+    description: 'Array of External Query identifiers to include in estimate',
     type: [String],
+    required: false,
   })
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
+  @ArrayMinSize(0)
+  @ArrayMaxSize(100)
   externalQueries?: string[];
 
   @ApiProperty({
     description:
-      'The General System Characteristics values (0-5 for each of the 14 GSCs)',
-    example: [3, 4, 2, 3, 4, 3, 3, 3, 2, 4, 3, 3, 2, 4],
-    required: false,
+      'General System Characteristics values (14 values, each 0-5 range)',
+    example: [3, 2, 4, 1, 3, 2, 3, 1, 2, 3, 2, 1, 2, 3],
     type: [Number],
+    required: false,
   })
   @IsOptional()
   @IsArray()
+  @ArrayMinSize(14)
+  @ArrayMaxSize(14)
   @IsNumber({}, { each: true })
   @Min(0, { each: true })
   @Max(5, { each: true })
-  @ArrayMinSize(14)
-  @ArrayMaxSize(14)
   generalSystemCharacteristics?: number[];
 
   @ApiProperty({
-    description: 'Optional notes about the estimate',
-    example: 'This is an initial estimate based on preliminary requirements',
+    description: 'Additional notes and comments about the estimate',
+    example:
+      'This estimate assumes standard complexity for all components. May need revision based on detailed requirements.',
+    maxLength: 2000,
     required: false,
   })
   @IsOptional()

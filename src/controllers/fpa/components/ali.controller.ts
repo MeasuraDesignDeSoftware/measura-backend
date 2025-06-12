@@ -28,8 +28,9 @@ import {
   ESTIMATE_REPOSITORY,
   IEstimateRepository,
 } from '@domain/fpa/interfaces/estimate.repository.interface';
-import { CreateALIDto } from '@application/fpa/dtos/components/create-ali.dto';
+import { CreateALIDto } from '@application/fpa/dtos/create-ali.dto';
 import { UpdateALIDto } from '@application/fpa/dtos/components/update-ali.dto';
+import { ComplexityCalculator } from '@domain/fpa/services/complexity-calculator.service';
 
 @ApiTags('estimate-components')
 @Controller('estimates/:estimateId/ilf')
@@ -52,7 +53,7 @@ export class ALIController {
   @ApiBody({ type: CreateALIDto })
   async create(
     @Param('estimateId') estimateId: string,
-    @Body() aliData: Partial<ALI>,
+    @Body() aliData: CreateALIDto,
   ): Promise<ALI> {
     try {
       // Verify estimate exists
@@ -61,11 +62,23 @@ export class ALIController {
         throw new NotFoundException(`Estimate with ID ${estimateId} not found`);
       }
 
-      // Link to estimate's project
-      aliData.projectId = estimate.projectId;
+      // Calculate complexity and function points using the new calculator
+      const { complexity, functionPoints } =
+        ComplexityCalculator.calculateILFComplexity(
+          aliData.recordElementTypes,
+          aliData.dataElementTypes,
+        );
+
+      // Prepare ALI data with calculated values
+      const aliToCreate: Partial<ALI> = {
+        ...aliData,
+        projectId: estimate.projectId,
+        complexity,
+        functionPoints,
+      };
 
       // Create the ALI component
-      const createdALI = await this.aliRepository.create(aliData);
+      const createdALI = await this.aliRepository.create(aliToCreate);
 
       // Add reference to the estimate
       if (!estimate.internalLogicalFiles) {
@@ -174,7 +187,7 @@ export class ALIController {
   async update(
     @Param('estimateId') estimateId: string,
     @Param('id') id: string,
-    @Body() aliData: Partial<ALI>,
+    @Body() aliData: UpdateALIDto,
   ): Promise<ALI> {
     try {
       // Verify estimate exists and contains this ALI
@@ -192,7 +205,35 @@ export class ALIController {
         );
       }
 
-      const updatedALI = await this.aliRepository.update(id, aliData);
+      // Get current ALI to merge with updates
+      const currentALI = await this.aliRepository.findById(id);
+      if (!currentALI) {
+        throw new NotFoundException(`ILF with ID ${id} not found`);
+      }
+
+      // Prepare update data with potential complexity recalculation
+      const updateData: Partial<ALI> = { ...aliData };
+
+      // Recalculate complexity if RETs or DETs changed
+      if (
+        aliData.recordElementTypes !== undefined ||
+        aliData.dataElementTypes !== undefined
+      ) {
+        const recordElementTypes =
+          aliData.recordElementTypes ?? currentALI.recordElementTypes;
+        const dataElementTypes =
+          aliData.dataElementTypes ?? currentALI.dataElementTypes;
+
+        const { complexity, functionPoints } =
+          ComplexityCalculator.calculateILFComplexity(
+            recordElementTypes,
+            dataElementTypes,
+          );
+        updateData.complexity = complexity;
+        updateData.functionPoints = functionPoints;
+      }
+
+      const updatedALI = await this.aliRepository.update(id, updateData);
       if (!updatedALI) {
         throw new NotFoundException(`ILF with ID ${id} not found`);
       }

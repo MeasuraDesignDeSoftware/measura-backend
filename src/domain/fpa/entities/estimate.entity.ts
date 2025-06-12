@@ -14,7 +14,7 @@ export enum EstimateStatus {
 export enum CountType {
   DEVELOPMENT_PROJECT = 'DEVELOPMENT_PROJECT',
   ENHANCEMENT_PROJECT = 'ENHANCEMENT_PROJECT',
-  APPLICATION_BASELINE = 'APPLICATION_BASELINE',
+  APPLICATION_PROJECT = 'APPLICATION_PROJECT',
 }
 
 // FR02: Document Reference Type
@@ -31,6 +31,12 @@ export interface DocumentReference {
   filePath?: string;
   description?: string;
   uploadedAt: Date;
+}
+
+export interface GeneralSystemCharacteristic {
+  name: string;
+  description: string;
+  degreeOfInfluence: number;
 }
 
 @Schema({ timestamps: true })
@@ -102,15 +108,15 @@ export class Estimate {
   @Prop({ required: true })
   countingScope: string;
 
-  @ApiProperty({ description: 'The unadjusted function point count' })
+  @ApiProperty({ description: 'The unadjusted function point count (PFNA)' })
   @Prop({ default: 0 })
   unadjustedFunctionPoints: number;
 
-  @ApiProperty({ description: 'The value adjustment factor' })
+  @ApiProperty({ description: 'The value adjustment factor (FA)' })
   @Prop({ default: 1.0, min: 0.65, max: 1.35 })
   valueAdjustmentFactor: number;
 
-  @ApiProperty({ description: 'The adjusted function point count' })
+  @ApiProperty({ description: 'The adjusted function point count (PFA)' })
   @Prop({ default: 0 })
   adjustedFunctionPoints: number;
 
@@ -119,30 +125,55 @@ export class Estimate {
   estimatedEffortHours: number;
 
   @ApiProperty({
-    description: 'The productivity factor (hours per function point)',
+    description: 'Average daily working hours per person',
+    example: 8,
+    default: 8,
   })
-  @Prop({ default: 8 })
+  @Prop({ default: 8, min: 1, max: 24 })
+  averageDailyWorkingHours: number;
+
+  @ApiProperty({
+    description: 'Number of people working on the project',
+    example: 4,
+  })
+  @Prop({ required: true, min: 1, max: 100 })
+  teamSize: number;
+
+  @ApiProperty({
+    description: 'Hourly rate in Brazilian Reais (BRL)',
+    example: 150.0,
+  })
+  @Prop({ required: true, min: 0.01 })
+  hourlyRateBRL: number;
+
+  @ApiProperty({
+    description: 'The productivity factor (hours per function point)',
+    example: 10,
+    default: 10,
+  })
+  @Prop({ default: 10, min: 1, max: 100 })
   productivityFactor: number;
 
-  // FR09: Estimation Support - Additional fields
   @ApiProperty({
-    description: 'Team size for estimation',
+    description: 'Team size for estimation (deprecated, use teamSize)',
     example: 5,
     required: false,
   })
   @Prop()
-  teamSize?: number;
+  teamSize_legacy?: number;
 
   @ApiProperty({
-    description: 'Working hours per day per person',
+    description:
+      'Working hours per day per person (deprecated, use averageDailyWorkingHours)',
     example: 8,
     required: false,
   })
   @Prop({ default: 8 })
-  workingHoursPerDay: number;
+  workingHoursPerDay?: number;
 
   @ApiProperty({
-    description: 'Hourly rate for cost calculation',
+    description:
+      'Hourly rate for cost calculation (deprecated, use hourlyRateBRL)',
     example: 75.0,
     required: false,
   })
@@ -172,9 +203,11 @@ export class Estimate {
   @ApiProperty({
     description:
       'The General System Characteristics values (0-5 for each of the 14 GSCs)',
+    type: [Number],
+    required: false,
   })
-  @Prop({ type: [Number], default: Array(14).fill(3) })
-  generalSystemCharacteristics: number[];
+  @Prop({ type: [Number], required: false })
+  generalSystemCharacteristics?: number[];
 
   @ApiProperty({ description: 'The date when the estimate was created' })
   createdAt: Date;

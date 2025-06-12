@@ -1,23 +1,67 @@
+import { Injectable } from '@nestjs/common';
+
 export interface GeneralSystemCharacteristic {
   name: string;
   description: string;
   degreeOfInfluence: number; // From 0 to 5
 }
 
-// FR09: Enhanced estimation interface
+// Enhanced estimation interface with all new metrics
 export interface EstimationMetrics {
-  adjustedFunctionPoints: number;
+  // Function Point Metrics
+  pfna: number; // Pontos de Função Não Ajustados
+  ni: number; // Grau de Influência
+  fa: number; // Fator de Ajuste
+  pfa: number; // Pontos de Função Ajustados
+
+  // Effort Metrics
+  effortHours: number; // Esforço total em horas
+  durationDays: number; // Duração em dias
+  durationWeeks: number; // Duração em semanas
+  durationMonths: number; // Duração em meses
+
+  // Cost Metrics
+  totalCost: number; // Custo total
+  costPerFunctionPoint: number; // Custo por ponto de função
+  costPerPerson: number; // Custo por pessoa
+  hoursPerPerson: number; // Horas por pessoa
+
+  // Configuration
+  averageDailyWorkingHours: number;
+  teamSize: number;
+  hourlyRateBRL: number;
   productivityFactor: number;
-  effortInPersonHours: number;
-  effortInPersonDays: number;
-  effortInPersonMonths: number;
-  estimatedDurationCalendarDays: number;
-  totalCost: number;
-  teamSize?: number;
+
+  // Legacy compatibility
+  adjustedFunctionPoints: number;
+  estimatedEffortHours: number;
   workingHoursPerDay: number;
-  hourlyRate?: number;
+  hourlyRate: number;
 }
 
+export interface ComponentBreakdown {
+  ali: { count: number; points: number };
+  aie: { count: number; points: number };
+  ei: { count: number; points: number };
+  eo: { count: number; points: number };
+  eq: { count: number; points: number };
+  total: { count: number; points: number };
+}
+
+export interface ComplexityBreakdown {
+  low: { count: number; points: number };
+  average: { count: number; points: number };
+  high: { count: number; points: number };
+}
+
+export interface ComponentForBreakdown {
+  componentType?: string;
+  type?: string;
+  functionPoints?: number;
+  complexity?: string;
+}
+
+@Injectable()
 export class FunctionPointCalculator {
   // General system characteristics as defined in FPA methodology
   private static readonly GSC_FACTORS = [
@@ -107,108 +151,338 @@ export class FunctionPointCalculator {
     return this.GSC_FACTORS;
   }
 
+  /**
+   * Calculate PFNA (Unadjusted Function Points) - Sum of all component function points
+   */
   static calculateUnadjustedFunctionPoints(
-    ilfCount: number,
-    eifCount: number,
-    eiCount: number,
-    eoCount: number,
-    eqCount: number,
+    componentFunctionPoints: number[],
   ): number {
-    return ilfCount + eifCount + eiCount + eoCount + eqCount;
+    return componentFunctionPoints.reduce((sum, points) => sum + points, 0);
   }
 
+  /**
+   * Calculate NI (Degree of Influence) - Sum of all GSC values
+   */
+  static calculateDegreeOfInfluence(gscValues: number[]): number {
+    if (gscValues.length !== 14) {
+      throw new Error('GSC must have exactly 14 values');
+    }
+    return gscValues.reduce((sum, value) => sum + value, 0);
+  }
+
+  /**
+   * Calculate FA (Adjustment Factor) using new FPA formula
+   * FA = 0.65 + (0.01 × NI)
+   */
+  static calculateAdjustmentFactor(ni: number): number {
+    return 0.65 + 0.01 * ni;
+  }
+
+  /**
+   * Calculate PFA (Adjusted Function Points)
+   * PFA = PFNA × FA
+   */
+  static calculateAdjustedFunctionPoints(pfna: number, fa: number): number {
+    return pfna * fa;
+  }
+
+  /**
+   * Calculate effort in hours
+   * Effort = PFA × Productivity Factor
+   */
+  static calculateEffortHours(pfa: number, productivityFactor: number): number {
+    return pfa * productivityFactor;
+  }
+
+  /**
+   * Calculate project duration in days
+   * Duration = Effort ÷ (Team Size × Average Daily Working Hours)
+   */
+  static calculateDurationDays(
+    effortHours: number,
+    teamSize: number,
+    averageDailyWorkingHours: number,
+  ): number {
+    if (teamSize <= 0) {
+      throw new Error('Team size must be greater than 0');
+    }
+    return effortHours / (teamSize * averageDailyWorkingHours);
+  }
+
+  /**
+   * Calculate total project cost
+   * Cost = Effort × Hourly Rate
+   */
+  static calculateTotalCost(
+    effortHours: number,
+    hourlyRateBRL: number,
+  ): number {
+    return effortHours * hourlyRateBRL;
+  }
+
+  /**
+   * Calculate complete estimation metrics with all new formulas
+   */
+  static calculateEstimationMetrics(
+    componentFunctionPoints: number[],
+    config: {
+      averageDailyWorkingHours: number;
+      teamSize: number;
+      hourlyRateBRL: number;
+      productivityFactor: number;
+      generalSystemCharacteristics?: number[];
+    },
+  ): EstimationMetrics {
+    // Step 1: Calculate PFNA
+    const pfna = this.calculateUnadjustedFunctionPoints(
+      componentFunctionPoints,
+    );
+
+    // Step 2: Calculate NI and FA
+    let ni = 0;
+    let fa = 1; // Default if no GSC provided
+
+    if (config.generalSystemCharacteristics) {
+      ni = this.calculateDegreeOfInfluence(config.generalSystemCharacteristics);
+      fa = this.calculateAdjustmentFactor(ni);
+    }
+
+    // Step 3: Calculate PFA
+    const pfa = this.calculateAdjustedFunctionPoints(pfna, fa);
+
+    // Step 4: Calculate effort
+    const effortHours = this.calculateEffortHours(
+      pfa,
+      config.productivityFactor,
+    );
+
+    // Step 5: Calculate duration
+    const durationDays = this.calculateDurationDays(
+      effortHours,
+      config.teamSize,
+      config.averageDailyWorkingHours,
+    );
+    const durationWeeks = durationDays / 5; // 5 working days per week
+    const durationMonths = durationDays / 21; // 21 working days per month
+
+    // Step 6: Calculate costs
+    const totalCost = this.calculateTotalCost(
+      effortHours,
+      config.hourlyRateBRL,
+    );
+    const costPerFunctionPoint = totalCost / pfa;
+    const costPerPerson = totalCost / config.teamSize;
+    const hoursPerPerson = effortHours / config.teamSize;
+
+    return {
+      // New FPA metrics
+      pfna,
+      ni,
+      fa,
+      pfa,
+      effortHours,
+      durationDays,
+      durationWeeks,
+      durationMonths,
+      totalCost,
+      costPerFunctionPoint,
+      costPerPerson,
+      hoursPerPerson,
+
+      // Configuration
+      averageDailyWorkingHours: config.averageDailyWorkingHours,
+      teamSize: config.teamSize,
+      hourlyRateBRL: config.hourlyRateBRL,
+      productivityFactor: config.productivityFactor,
+
+      // Legacy compatibility
+      adjustedFunctionPoints: pfa,
+      estimatedEffortHours: effortHours,
+      workingHoursPerDay: config.averageDailyWorkingHours,
+      hourlyRate: config.hourlyRateBRL,
+    };
+  }
+
+  /**
+   * Legacy method for backward compatibility
+   */
   static calculateValueAdjustmentFactor(
     gscValues: GeneralSystemCharacteristic[],
   ): number {
-    // Ensure all 14 GSCs are provided
     if (gscValues.length !== 14) {
       throw new Error('All 14 General System Characteristics must be provided');
     }
 
-    // Calculate total degree of influence (TDI)
     const totalDegreeOfInfluence = gscValues.reduce(
       (sum, gsc) => sum + gsc.degreeOfInfluence,
       0,
     );
 
-    // VAF = (TDI * 0.01) + 0.65
-    return totalDegreeOfInfluence * 0.01 + 0.65;
+    return this.calculateAdjustmentFactor(totalDegreeOfInfluence);
   }
 
-  static calculateAdjustedFunctionPoints(
-    unadjustedFunctionPoints: number,
-    valueAdjustmentFactor: number,
-  ): number {
-    return unadjustedFunctionPoints * valueAdjustmentFactor;
-  }
-
+  /**
+   * Legacy method for backward compatibility
+   */
   static calculateEffortInPersonHours(
     adjustedFunctionPoints: number,
     productivityFactor: number,
   ): number {
-    return adjustedFunctionPoints * productivityFactor;
-  }
-
-  // FR09: Enhanced estimation support
-  static calculateEstimationMetrics(
-    adjustedFunctionPoints: number,
-    productivityFactor: number,
-    teamSize?: number,
-    workingHoursPerDay: number = 8,
-    hourlyRate?: number,
-  ): EstimationMetrics {
-    const effortInPersonHours = this.calculateEffortInPersonHours(
+    return this.calculateEffortHours(
       adjustedFunctionPoints,
       productivityFactor,
     );
-
-    const effortInPersonDays = effortInPersonHours / workingHoursPerDay;
-    const effortInPersonMonths = effortInPersonDays / 21; // 21 working days per month
-
-    let estimatedDurationCalendarDays = 0;
-    if (teamSize && teamSize > 0) {
-      const totalPersonDays = effortInPersonDays;
-      estimatedDurationCalendarDays = Math.ceil(totalPersonDays / teamSize);
-    }
-
-    let totalCost = 0;
-    if (hourlyRate) {
-      totalCost = effortInPersonHours * hourlyRate;
-    }
-
-    return {
-      adjustedFunctionPoints,
-      productivityFactor,
-      effortInPersonHours,
-      effortInPersonDays,
-      effortInPersonMonths,
-      estimatedDurationCalendarDays,
-      totalCost,
-      teamSize,
-      workingHoursPerDay,
-      hourlyRate,
-    };
   }
 
-  // FR09: Calculate cost estimation
-  static calculateTotalCost(
-    effortInPersonHours: number,
-    hourlyRate: number,
-  ): number {
-    return effortInPersonHours * hourlyRate;
-  }
-
-  // FR09: Calculate duration in calendar days
+  /**
+   * Legacy method for backward compatibility
+   */
   static calculateDurationInCalendarDays(
     effortInPersonHours: number,
     teamSize: number,
     workingHoursPerDay: number = 8,
   ): number {
-    if (teamSize <= 0) {
-      throw new Error('Team size must be greater than 0');
+    return this.calculateDurationDays(
+      effortInPersonHours,
+      teamSize,
+      workingHoursPerDay,
+    );
+  }
+
+  /**
+   * Calculate component breakdown by type
+   */
+  static calculateComponentBreakdown(
+    components: ComponentForBreakdown[],
+  ): ComponentBreakdown {
+    const breakdown = {
+      ali: { count: 0, points: 0 },
+      aie: { count: 0, points: 0 },
+      ei: { count: 0, points: 0 },
+      eo: { count: 0, points: 0 },
+      eq: { count: 0, points: 0 },
+      total: { count: components.length, points: 0 },
+    };
+
+    components.forEach((component) => {
+      const type =
+        component.componentType?.toLowerCase() || component.type?.toLowerCase();
+      const points = component.functionPoints || 0;
+
+      switch (type) {
+        case 'ali':
+          breakdown.ali.count++;
+          breakdown.ali.points += points;
+          break;
+        case 'aie':
+          breakdown.aie.count++;
+          breakdown.aie.points += points;
+          break;
+        case 'ei':
+          breakdown.ei.count++;
+          breakdown.ei.points += points;
+          break;
+        case 'eo':
+          breakdown.eo.count++;
+          breakdown.eo.points += points;
+          break;
+        case 'eq':
+          breakdown.eq.count++;
+          breakdown.eq.points += points;
+          break;
+      }
+
+      breakdown.total.points += points;
+    });
+
+    return breakdown;
+  }
+
+  /**
+   * Calculate complexity breakdown
+   */
+  static calculateComplexityBreakdown(
+    components: ComponentForBreakdown[],
+  ): ComplexityBreakdown {
+    const breakdown = {
+      low: { count: 0, points: 0 },
+      average: { count: 0, points: 0 },
+      high: { count: 0, points: 0 },
+    };
+
+    components.forEach((component) => {
+      const complexity = component.complexity?.toLowerCase();
+      const points = component.functionPoints || 0;
+
+      switch (complexity) {
+        case 'low':
+          breakdown.low.count++;
+          breakdown.low.points += points;
+          break;
+        case 'average':
+          breakdown.average.count++;
+          breakdown.average.points += points;
+          break;
+        case 'high':
+          breakdown.high.count++;
+          breakdown.high.points += points;
+          break;
+      }
+    });
+
+    return breakdown;
+  }
+
+  /**
+   * Validate estimation inputs
+   */
+  static validateEstimationInputs(config: {
+    averageDailyWorkingHours: number;
+    teamSize: number;
+    hourlyRateBRL: number;
+    productivityFactor: number;
+    generalSystemCharacteristics?: number[];
+  }): { isValid: boolean; errors: string[] } {
+    const errors: string[] = [];
+
+    if (
+      config.averageDailyWorkingHours < 1 ||
+      config.averageDailyWorkingHours > 24
+    ) {
+      errors.push('Average daily working hours must be between 1 and 24');
     }
 
-    const totalPersonDays = effortInPersonHours / workingHoursPerDay;
-    return Math.ceil(totalPersonDays / teamSize);
+    if (config.teamSize < 1 || config.teamSize > 100) {
+      errors.push('Team size must be between 1 and 100');
+    }
+
+    if (config.hourlyRateBRL < 0.01) {
+      errors.push('Hourly rate must be positive');
+    }
+
+    if (config.productivityFactor < 1 || config.productivityFactor > 100) {
+      errors.push(
+        'Productivity factor must be between 1 and 100 hours per function point',
+      );
+    }
+
+    if (config.generalSystemCharacteristics) {
+      if (config.generalSystemCharacteristics.length !== 14) {
+        errors.push(
+          'General System Characteristics must have exactly 14 values',
+        );
+      } else {
+        config.generalSystemCharacteristics.forEach((value, index) => {
+          if (value < 0 || value > 5) {
+            errors.push(`GSC value ${index + 1} must be between 0 and 5`);
+          }
+        });
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+    };
   }
 }

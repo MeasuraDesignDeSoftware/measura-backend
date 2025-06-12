@@ -4,11 +4,11 @@ import {
   Post,
   Body,
   Param,
+  Put,
   Delete,
+  UseGuards,
   NotFoundException,
   BadRequestException,
-  UseGuards,
-  Put,
   Inject,
 } from '@nestjs/common';
 import {
@@ -20,6 +20,7 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '@shared/utils/guards/jwt-auth.guard';
 import { EQ } from '@domain/fpa/entities/eq.entity';
+import { ComplexityLevel } from '@domain/fpa/entities/base-fpa-component.entity';
 import {
   EQ_REPOSITORY,
   IEQRepository,
@@ -28,8 +29,9 @@ import {
   ESTIMATE_REPOSITORY,
   IEstimateRepository,
 } from '@domain/fpa/interfaces/estimate.repository.interface';
-import { CreateEQDto } from '@application/fpa/dtos/components/create-eq.dto';
+import { CreateEQDto } from '@application/fpa/dtos/create-eq.dto';
 import { UpdateEQDto } from '@application/fpa/dtos/components/update-eq.dto';
+import { ComplexityCalculator } from '@domain/fpa/services/complexity-calculator.service';
 
 @ApiTags('estimate-components')
 @Controller('estimates/:estimateId/eq')
@@ -43,16 +45,20 @@ export class EQController {
   ) {}
 
   @Post()
-  @ApiOperation({
-    summary: 'Add an External Query (EQ) to an estimate',
-  })
+  @ApiOperation({ summary: 'Create a new External Query (EQ) component' })
   @ApiParam({ name: 'estimateId', description: 'The estimate ID' })
-  @ApiResponse({ status: 201, description: 'EQ added successfully' })
+  @ApiResponse({
+    status: 201,
+    description: 'EQ component created successfully',
+  })
   @ApiResponse({ status: 404, description: 'Estimate not found' })
-  @ApiBody({ type: CreateEQDto })
+  @ApiBody({
+    type: CreateEQDto,
+    description: 'EQ component data',
+  })
   async create(
     @Param('estimateId') estimateId: string,
-    @Body() eqData: Partial<EQ>,
+    @Body() eqData: CreateEQDto,
   ): Promise<EQ> {
     try {
       // Verify estimate exists
@@ -61,11 +67,46 @@ export class EQController {
         throw new NotFoundException(`Estimate with ID ${estimateId} not found`);
       }
 
-      // Link to estimate's project
-      eqData.projectId = estimate.projectId;
+      // Calculate complexity and function points
+      let complexity: ComplexityLevel;
+      let functionPoints: number;
+
+      // Check if we should use special dual calculation
+      if (
+        eqData.inputFtr !== undefined &&
+        eqData.inputDet !== undefined &&
+        eqData.outputFtr !== undefined &&
+        eqData.outputDet !== undefined
+      ) {
+        // Use special EQ calculation
+        const specialResult = ComplexityCalculator.calculateEQSpecialComplexity(
+          eqData.inputFtr,
+          eqData.inputDet,
+          eqData.outputFtr,
+          eqData.outputDet,
+        );
+        complexity = specialResult.finalComplexity;
+        functionPoints = specialResult.finalFunctionPoints;
+      } else {
+        // Use standard calculation with required parameters
+        const ftr = eqData.fileTypesReferenced ?? 0;
+        const det = eqData.dataElementTypes ?? 1;
+
+        const result = ComplexityCalculator.calculateEQComplexity(ftr, det);
+        complexity = result.complexity;
+        functionPoints = result.functionPoints;
+      }
+
+      // Prepare EQ data with calculated values
+      const eqToCreate: Partial<EQ> = {
+        ...eqData,
+        projectId: estimate.projectId,
+        complexity,
+        functionPoints,
+      };
 
       // Create the EQ component
-      const createdEQ = await this.eqRepository.create(eqData);
+      const createdEQ = await this.eqRepository.create(eqToCreate);
 
       // Add reference to the estimate
       if (!estimate.externalQueries) {
@@ -82,7 +123,7 @@ export class EQController {
         throw error;
       }
       throw new BadRequestException(
-        `Failed to add EQ to estimate: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Failed to create EQ component: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
     }
   }
@@ -171,7 +212,7 @@ export class EQController {
   async update(
     @Param('estimateId') estimateId: string,
     @Param('id') id: string,
-    @Body() eqData: Partial<EQ>,
+    @Body() eqData: UpdateEQDto,
   ): Promise<EQ> {
     try {
       // Verify estimate exists and contains this EQ
@@ -189,7 +230,35 @@ export class EQController {
         );
       }
 
-      const updatedEQ = await this.eqRepository.update(id, eqData);
+      // Get current EQ to merge with updates
+      const currentEQ = await this.eqRepository.findById(id);
+      if (!currentEQ) {
+        throw new NotFoundException(`EQ with ID ${id} not found`);
+      }
+
+      // Prepare update data with potential complexity recalculation
+      const updateData: Partial<EQ> = { ...eqData };
+
+      // Recalculate complexity if FTRs or DETs changed
+      if (
+        eqData.fileTypesReferenced !== undefined ||
+        eqData.dataElementTypes !== undefined
+      ) {
+        const fileTypesReferenced =
+          eqData.fileTypesReferenced ?? currentEQ.fileTypesReferenced;
+        const dataElementTypes =
+          eqData.dataElementTypes ?? currentEQ.dataElementTypes;
+
+        const { complexity, functionPoints } =
+          ComplexityCalculator.calculateEQComplexity(
+            fileTypesReferenced,
+            dataElementTypes,
+          );
+        updateData.complexity = complexity;
+        updateData.functionPoints = functionPoints;
+      }
+
+      const updatedEQ = await this.eqRepository.update(id, updateData);
       if (!updatedEQ) {
         throw new NotFoundException(`EQ with ID ${id} not found`);
       }

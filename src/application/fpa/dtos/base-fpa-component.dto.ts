@@ -6,8 +6,6 @@ import {
   MinLength,
   IsEnum,
   IsOptional,
-  IsNumber,
-  Min,
 } from 'class-validator';
 import { ComplexityLevel } from '@domain/fpa/entities/base-fpa-component.entity';
 

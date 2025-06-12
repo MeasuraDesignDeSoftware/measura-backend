@@ -126,43 +126,51 @@ export class CalculationsController {
           : [],
       ]);
 
-      // Calculate unadjusted function points
-      const unadjustedFP =
-        FunctionPointCalculator.calculateUnadjustedFunctionPoints(
-          alis.length,
-          aies.length,
-          eis.length,
-          eos.length,
-          eqs.length,
-        );
+      // Calculate placeholder function points for each component type
+      const aliPoints = alis.length * 10; // Assuming average 10 points per ALI
+      const aiePoints = aies.length * 7; // Assuming average 7 points per AIE
+      const eiPoints = eis.length * 4; // Assuming average 4 points per EI
+      const eoPoints = eos.length * 5; // Assuming average 5 points per EO
+      const eqPoints = eqs.length * 3; // Assuming average 3 points per EQ
+
+      // Calculate PFNA using new method signature
+      const pfna = FunctionPointCalculator.calculateUnadjustedFunctionPoints([
+        aliPoints,
+        aiePoints,
+        eiPoints,
+        eoPoints,
+        eqPoints,
+      ]);
 
       // Calculate value adjustment factor (VAF)
       // Convert numeric GSC values to GeneralSystemCharacteristic objects
       const gscFactors = FunctionPointCalculator.getGSCFactors();
-      const gscObjects = estimate.generalSystemCharacteristics.map(
-        (value, index) => ({
-          name: gscFactors[index].name,
-          description: gscFactors[index].description,
-          degreeOfInfluence: value,
-        }),
-      );
+      let vaf = 1.0; // Default VAF when GSC is not provided or incomplete
 
-      const vaf =
-        FunctionPointCalculator.calculateValueAdjustmentFactor(gscObjects);
+      // Only calculate VAF if we have exactly 14 GSC values
+      if (estimate.generalSystemCharacteristics?.length === 14) {
+        const gscObjects = estimate.generalSystemCharacteristics.map(
+          (value, index) => ({
+            name: gscFactors[index].name,
+            description: gscFactors[index].description,
+            degreeOfInfluence: value,
+          }),
+        );
+
+        vaf =
+          FunctionPointCalculator.calculateValueAdjustmentFactor(gscObjects);
+      }
 
       // Calculate adjusted function points
       const adjustedFP =
-        FunctionPointCalculator.calculateAdjustedFunctionPoints(
-          unadjustedFP,
-          vaf,
-        );
+        FunctionPointCalculator.calculateAdjustedFunctionPoints(pfna, vaf);
 
       // Calculate estimated effort
       const effortHours = adjustedFP * estimate.productivityFactor;
 
       // Update the estimate
       const updatedEstimate = await this.estimateRepository.update(id, {
-        unadjustedFunctionPoints: unadjustedFP,
+        unadjustedFunctionPoints: pfna,
         valueAdjustmentFactor: vaf,
         adjustedFunctionPoints: adjustedFP,
         estimatedEffortHours: effortHours,

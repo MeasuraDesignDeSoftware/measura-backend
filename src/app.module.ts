@@ -10,6 +10,7 @@ import { PlansModule } from '@app/modules/plans/plans.module';
 import { ProjectsModule } from '@app/modules/projects/projects.module';
 import { FPAModule } from '@app/modules/fpa/fpa.module';
 import { UsersModule } from '@app/modules/users/users.module';
+import { OrganizationsModule } from '@app/modules/organizations/organizations.module';
 
 // Controller Modules
 import { GQMControllerModule } from '@controllers/gqm/gqm.module';
@@ -18,6 +19,8 @@ import { ObjectivesModule as ObjectivesControllerModule } from '@controllers/gqm
 import { EstimatesModule } from '@controllers/fpa/estimates.module';
 import { EstimatesComponentsModule } from '@controllers/fpa/estimates-components.module';
 import { PlansModule as PlansControllerModule } from '@controllers/plans/plans.module';
+import { OrganizationsControllerModule } from '@controllers/organizations/organizations.module';
+import { ProjectsControllerModule } from '@controllers/projects/projects.module';
 
 import appConfig from '@app/config/app.config';
 import { winstonConfig } from '@app/config/winston.config';
@@ -47,6 +50,7 @@ import { winstonConfig } from '@app/config/winston.config';
     ProjectsModule,
     FPAModule,
     UsersModule,
+    OrganizationsModule,
 
     // Controller Modules
     GQMControllerModule,
@@ -55,6 +59,8 @@ import { winstonConfig } from '@app/config/winston.config';
     EstimatesModule,
     EstimatesComponentsModule,
     PlansControllerModule,
+    OrganizationsControllerModule,
+    ProjectsControllerModule,
   ],
   controllers: [],
   providers: [],

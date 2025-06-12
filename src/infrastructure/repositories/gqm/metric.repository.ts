@@ -1,10 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import {
-  Metric,
-  MetricDocument,
-} from '@domain/gqm/entities/metric.entity';
+import { Metric, MetricDocument } from '@domain/gqm/entities/metric.entity';
 import { IMetricRepository } from '@domain/gqm/interfaces/metric.repository.interface';
 
 @Injectable()

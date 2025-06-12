@@ -28,8 +28,9 @@ import {
   ESTIMATE_REPOSITORY,
   IEstimateRepository,
 } from '@domain/fpa/interfaces/estimate.repository.interface';
-import { CreateEODto } from '@application/fpa/dtos/components/create-eo.dto';
+import { CreateEODto } from '@application/fpa/dtos/create-eo.dto';
 import { UpdateEODto } from '@application/fpa/dtos/components/update-eo.dto';
+import { ComplexityCalculator } from '@domain/fpa/services/complexity-calculator.service';
 
 @ApiTags('estimate-components')
 @Controller('estimates/:estimateId/eo')
@@ -52,7 +53,7 @@ export class EOController {
   @ApiBody({ type: CreateEODto })
   async create(
     @Param('estimateId') estimateId: string,
-    @Body() eoData: Partial<EO>,
+    @Body() eoData: CreateEODto,
   ): Promise<EO> {
     try {
       // Verify estimate exists
@@ -61,11 +62,23 @@ export class EOController {
         throw new NotFoundException(`Estimate with ID ${estimateId} not found`);
       }
 
-      // Link to estimate's project
-      eoData.projectId = estimate.projectId;
+      // Calculate complexity and function points using the new calculator
+      const { complexity, functionPoints } =
+        ComplexityCalculator.calculateEOComplexity(
+          eoData.fileTypesReferenced,
+          eoData.dataElementTypes,
+        );
+
+      // Prepare EO data with calculated values
+      const eoToCreate: Partial<EO> = {
+        ...eoData,
+        projectId: estimate.projectId,
+        complexity,
+        functionPoints,
+      };
 
       // Create the EO component
-      const createdEO = await this.eoRepository.create(eoData);
+      const createdEO = await this.eoRepository.create(eoToCreate);
 
       // Add reference to the estimate
       if (!estimate.externalOutputs) {
@@ -171,7 +184,7 @@ export class EOController {
   async update(
     @Param('estimateId') estimateId: string,
     @Param('id') id: string,
-    @Body() eoData: Partial<EO>,
+    @Body() eoData: UpdateEODto,
   ): Promise<EO> {
     try {
       // Verify estimate exists and contains this EO
@@ -189,7 +202,35 @@ export class EOController {
         );
       }
 
-      const updatedEO = await this.eoRepository.update(id, eoData);
+      // Get current EO to merge with updates
+      const currentEO = await this.eoRepository.findById(id);
+      if (!currentEO) {
+        throw new NotFoundException(`EO with ID ${id} not found`);
+      }
+
+      // Prepare update data with potential complexity recalculation
+      const updateData: Partial<EO> = { ...eoData };
+
+      // Recalculate complexity if FTRs or DETs changed
+      if (
+        eoData.fileTypesReferenced !== undefined ||
+        eoData.dataElementTypes !== undefined
+      ) {
+        const fileTypesReferenced =
+          eoData.fileTypesReferenced ?? currentEO.fileTypesReferenced;
+        const dataElementTypes =
+          eoData.dataElementTypes ?? currentEO.dataElementTypes;
+
+        const { complexity, functionPoints } =
+          ComplexityCalculator.calculateEOComplexity(
+            fileTypesReferenced,
+            dataElementTypes,
+          );
+        updateData.complexity = complexity;
+        updateData.functionPoints = functionPoints;
+      }
+
+      const updatedEO = await this.eoRepository.update(id, updateData);
       if (!updatedEO) {
         throw new NotFoundException(`EO with ID ${id} not found`);
       }

@@ -47,6 +47,18 @@ export class ProjectRepository implements IProjectRepository {
     return this.projectModel.find().exec();
   }
 
+  async findByOrganization(organizationId: string): Promise<Project[]> {
+    if (!Types.ObjectId.isValid(organizationId)) {
+      this.logger.warn(
+        `Invalid ObjectId format in findByOrganization: ${organizationId}`,
+      );
+      return [];
+    }
+    return this.projectModel
+      .find({ organizationId: new Types.ObjectId(organizationId) })
+      .exec();
+  }
+
   async update(id: string, project: Partial<Project>): Promise<Project | null> {
     return this.projectModel
       .findByIdAndUpdate(id, project, { new: true })

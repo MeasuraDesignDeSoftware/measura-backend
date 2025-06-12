@@ -28,8 +28,9 @@ import {
   ESTIMATE_REPOSITORY,
   IEstimateRepository,
 } from '@domain/fpa/interfaces/estimate.repository.interface';
-import { CreateEIDto } from '@application/fpa/dtos/components/create-ei.dto';
+import { CreateEIDto } from '@application/fpa/dtos/create-ei.dto';
 import { UpdateEIDto } from '@application/fpa/dtos/components/update-ei.dto';
+import { ComplexityCalculator } from '@domain/fpa/services/complexity-calculator.service';
 
 @ApiTags('estimate-components')
 @Controller('estimates/:estimateId/ei')
@@ -52,7 +53,7 @@ export class EIController {
   @ApiBody({ type: CreateEIDto })
   async create(
     @Param('estimateId') estimateId: string,
-    @Body() eiData: Partial<EI>,
+    @Body() eiData: CreateEIDto,
   ): Promise<EI> {
     try {
       // Verify estimate exists
@@ -61,11 +62,23 @@ export class EIController {
         throw new NotFoundException(`Estimate with ID ${estimateId} not found`);
       }
 
-      // Link to estimate's project
-      eiData.projectId = estimate.projectId;
+      // Calculate complexity and function points using the new calculator
+      const { complexity, functionPoints } =
+        ComplexityCalculator.calculateEIComplexity(
+          eiData.fileTypesReferenced,
+          eiData.dataElementTypes,
+        );
+
+      // Prepare EI data with calculated values
+      const eiToCreate: Partial<EI> = {
+        ...eiData,
+        projectId: estimate.projectId,
+        complexity,
+        functionPoints,
+      };
 
       // Create the EI component
-      const createdEI = await this.eiRepository.create(eiData);
+      const createdEI = await this.eiRepository.create(eiToCreate);
 
       // Add reference to the estimate
       if (!estimate.externalInputs) {
@@ -171,7 +184,7 @@ export class EIController {
   async update(
     @Param('estimateId') estimateId: string,
     @Param('id') id: string,
-    @Body() eiData: Partial<EI>,
+    @Body() eiData: UpdateEIDto,
   ): Promise<EI> {
     try {
       // Verify estimate exists and contains this EI
@@ -189,7 +202,35 @@ export class EIController {
         );
       }
 
-      const updatedEI = await this.eiRepository.update(id, eiData);
+      // Get current EI to merge with updates
+      const currentEI = await this.eiRepository.findById(id);
+      if (!currentEI) {
+        throw new NotFoundException(`EI with ID ${id} not found`);
+      }
+
+      // Prepare update data with potential complexity recalculation
+      const updateData: Partial<EI> = { ...eiData };
+
+      // Recalculate complexity if FTRs or DETs changed
+      if (
+        eiData.fileTypesReferenced !== undefined ||
+        eiData.dataElementTypes !== undefined
+      ) {
+        const fileTypesReferenced =
+          eiData.fileTypesReferenced ?? currentEI.fileTypesReferenced;
+        const dataElementTypes =
+          eiData.dataElementTypes ?? currentEI.dataElementTypes;
+
+        const { complexity, functionPoints } =
+          ComplexityCalculator.calculateEIComplexity(
+            fileTypesReferenced,
+            dataElementTypes,
+          );
+        updateData.complexity = complexity;
+        updateData.functionPoints = functionPoints;
+      }
+
+      const updatedEI = await this.eiRepository.update(id, updateData);
       if (!updatedEI) {
         throw new NotFoundException(`EI with ID ${id} not found`);
       }

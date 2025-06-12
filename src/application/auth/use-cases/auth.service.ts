@@ -32,6 +32,28 @@ import { FirebaseAdminService } from '@infrastructure/external-services/firebase
 import { EmailService } from '@infrastructure/external-services/email/email.service';
 import * as admin from 'firebase-admin';
 
+/**
+ * ========================================
+ * TEMPORARY EMAIL VERIFICATION DISABLED
+ * ========================================
+ *
+ * The following changes have been made temporarily for development purposes:
+ *
+ * 1. In validateUser() method (lines ~65-69):
+ *    - Email verification check is commented out
+ *    - Users can login without verifying their email
+ *
+ * 2. In register() method (lines ~108):
+ *    - New users are created with isEmailVerified: true
+ *    - This allows immediate login after registration
+ *
+ * TO RE-ENABLE EMAIL VERIFICATION:
+ * 1. Uncomment the email verification check in validateUser()
+ * 2. Change isEmailVerified: true back to isEmailVerified: false in register()
+ *
+ * ========================================
+ */
+
 interface FirebaseAuthUser {
   email: string;
   name?: string;
@@ -62,11 +84,12 @@ export class AuthService {
       );
     }
 
-    if (!user.isEmailVerified) {
-      throw new UnauthorizedException(
-        'Please verify your email address before logging in. Check your inbox for a verification email.',
-      );
-    }
+    // TODO: TEMPORARILY DISABLED - Remove this comment to re-enable email verification
+    // if (!user.isEmailVerified) {
+    //   throw new UnauthorizedException(
+    //     'Please verify your email address before logging in. Check your inbox for a verification email.',
+    //   );
+    // }
 
     const isPasswordValid = await bcrypt.compare(password, user.password!);
     if (!isPasswordValid) {
@@ -111,7 +134,7 @@ export class AuthService {
       provider: AuthProvider.LOCAL,
       role: registerDto.role || UserRole.USER,
       isActive: true,
-      isEmailVerified: false,
+      isEmailVerified: true,
     });
 
     if (newUser && newUser._id) {

@@ -1,10 +1,16 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNumber, IsOptional, Min } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  Min,
+  MaxLength,
+} from 'class-validator';
 
 export class UpdateALIDto {
   @ApiProperty({
     description: 'Name of the Internal Logical File',
-    example: 'Customer Data',
+    example: 'Customer Master File',
     required: false,
   })
   @IsString()
@@ -12,9 +18,9 @@ export class UpdateALIDto {
   name?: string;
 
   @ApiProperty({
-    description: 'Description of the Internal Logical File',
+    description: 'Detailed description of the ALI',
     example:
-      'Stores customer information including personal details and preferences',
+      'Maintains comprehensive customer information including personal details, preferences, and account status',
     required: false,
   })
   @IsString()
@@ -22,7 +28,7 @@ export class UpdateALIDto {
   description?: string;
 
   @ApiProperty({
-    description: 'Number of record element types (RETs)',
+    description: 'Number of Record Element Types (RETs/TRs) - Types of Records',
     example: 2,
     minimum: 1,
     required: false,
@@ -33,7 +39,7 @@ export class UpdateALIDto {
   recordElementTypes?: number;
 
   @ApiProperty({
-    description: 'Number of data element types (DETs)',
+    description: 'Number of Data Element Types (DETs/TDs) - Types of Data',
     example: 15,
     minimum: 1,
     required: false,
@@ -44,11 +50,24 @@ export class UpdateALIDto {
   dataElementTypes?: number;
 
   @ApiProperty({
-    description: 'Optional notes about this ILF',
-    example: 'Contains sensitive data that requires special handling',
+    description:
+      'Primary purpose and business function of this Internal Logical File',
+    example:
+      'Stores customer information including contact details, preferences, and account status',
     required: false,
   })
   @IsString()
   @IsOptional()
+  primaryIntent?: string;
+
+  @ApiProperty({
+    description:
+      'Additional technical notes about data structure, relationships, or constraints',
+    example: 'Includes encrypted payment information and audit trail fields',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(2000)
   notes?: string;
 }

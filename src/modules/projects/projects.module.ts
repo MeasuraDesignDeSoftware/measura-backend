@@ -6,6 +6,7 @@ import {
 } from '@domain/projects/entities/project.entity';
 import { ProjectRepository } from '@infrastructure/repositories/projects/project.repository';
 import { PROJECT_REPOSITORY } from '@domain/projects/interfaces/project.repository.interface';
+import { ProjectService } from '@application/projects/use-cases/project.service';
 
 @Module({
   imports: [
@@ -17,7 +18,8 @@ import { PROJECT_REPOSITORY } from '@domain/projects/interfaces/project.reposito
       provide: PROJECT_REPOSITORY,
       useClass: ProjectRepository,
     },
+    ProjectService,
   ],
-  exports: [PROJECT_REPOSITORY],
+  exports: [PROJECT_REPOSITORY, ProjectService],
 })
 export class ProjectsModule {}

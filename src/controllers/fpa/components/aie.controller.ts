@@ -28,8 +28,9 @@ import {
   ESTIMATE_REPOSITORY,
   IEstimateRepository,
 } from '@domain/fpa/interfaces/estimate.repository.interface';
-import { CreateAIEDto } from '@application/fpa/dtos/components/create-aie.dto';
+import { CreateAIEDto } from '@application/fpa/dtos/create-aie.dto';
 import { UpdateAIEDto } from '@application/fpa/dtos/components/update-aie.dto';
+import { ComplexityCalculator } from '@domain/fpa/services/complexity-calculator.service';
 
 @ApiTags('estimate-components')
 @Controller('estimates/:estimateId/eif')
@@ -52,7 +53,7 @@ export class AIEController {
   @ApiBody({ type: CreateAIEDto })
   async create(
     @Param('estimateId') estimateId: string,
-    @Body() aieData: Partial<AIE>,
+    @Body() aieData: CreateAIEDto,
   ): Promise<AIE> {
     try {
       // Verify estimate exists
@@ -61,11 +62,23 @@ export class AIEController {
         throw new NotFoundException(`Estimate with ID ${estimateId} not found`);
       }
 
-      // Link to estimate's project
-      aieData.projectId = estimate.projectId;
+      // Calculate complexity and function points using the new calculator
+      const { complexity, functionPoints } =
+        ComplexityCalculator.calculateEIFComplexity(
+          aieData.recordElementTypes,
+          aieData.dataElementTypes,
+        );
+
+      // Prepare AIE data with calculated values
+      const aieToCreate: Partial<AIE> = {
+        ...aieData,
+        projectId: estimate.projectId,
+        complexity,
+        functionPoints,
+      };
 
       // Create the AIE component
-      const createdAIE = await this.aieRepository.create(aieData);
+      const createdAIE = await this.aieRepository.create(aieToCreate);
 
       // Add reference to the estimate
       if (!estimate.externalInterfaceFiles) {
@@ -176,7 +189,7 @@ export class AIEController {
   async update(
     @Param('estimateId') estimateId: string,
     @Param('id') id: string,
-    @Body() aieData: Partial<AIE>,
+    @Body() aieData: UpdateAIEDto,
   ): Promise<AIE> {
     try {
       // Verify estimate exists and contains this AIE
@@ -196,7 +209,35 @@ export class AIEController {
         );
       }
 
-      const updatedAIE = await this.aieRepository.update(id, aieData);
+      // Get current AIE to merge with updates
+      const currentAIE = await this.aieRepository.findById(id);
+      if (!currentAIE) {
+        throw new NotFoundException(`EIF with ID ${id} not found`);
+      }
+
+      // Prepare update data with potential complexity recalculation
+      const updateData: Partial<AIE> = { ...aieData };
+
+      // Recalculate complexity if RETs or DETs changed
+      if (
+        aieData.recordElementTypes !== undefined ||
+        aieData.dataElementTypes !== undefined
+      ) {
+        const recordElementTypes =
+          aieData.recordElementTypes ?? currentAIE.recordElementTypes;
+        const dataElementTypes =
+          aieData.dataElementTypes ?? currentAIE.dataElementTypes;
+
+        const { complexity, functionPoints } =
+          ComplexityCalculator.calculateEIFComplexity(
+            recordElementTypes,
+            dataElementTypes,
+          );
+        updateData.complexity = complexity;
+        updateData.functionPoints = functionPoints;
+      }
+
+      const updatedAIE = await this.aieRepository.update(id, updateData);
       if (!updatedAIE) {
         throw new NotFoundException(`EIF with ID ${id} not found`);
       }

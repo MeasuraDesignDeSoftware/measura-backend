@@ -8,6 +8,7 @@ import {
   IsEnum,
   IsArray,
   ArrayMaxSize,
+  IsMongoId,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ProjectStatus } from '@domain/projects/entities/project.entity';
@@ -34,6 +35,15 @@ export class UpdateProjectDto {
   @MinLength(10)
   @MaxLength(1000)
   description?: string;
+
+  @ApiProperty({
+    description: 'The organization this project belongs to',
+    example: '60a1e2c7b9b5a50d944b1e34',
+    required: false,
+  })
+  @IsOptional()
+  @IsMongoId({ message: 'Organization ID must be a valid MongoDB ObjectId' })
+  organizationId?: string;
 
   @ApiProperty({
     description: 'The status of the project',

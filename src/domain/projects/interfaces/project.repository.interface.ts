@@ -7,6 +7,7 @@ export interface IProjectRepository {
   findById(id: string): Promise<Project | null>;
   findByIds(ids: string[]): Promise<Project[]>;
   findAll(): Promise<Project[]>;
+  findByOrganization(organizationId: string): Promise<Project[]>;
   update(id: string, project: Partial<Project>): Promise<Project | null>;
   delete(id: string): Promise<boolean>;
   findByCreatedBy(userId: string): Promise<Project[]>;

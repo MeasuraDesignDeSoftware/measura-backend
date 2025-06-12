@@ -79,4 +79,7 @@ out
 # Firebase
 firebase-service-account.json
 .cursor/
-TODO.md
+.docs/
+
+# Documentation
+docs/

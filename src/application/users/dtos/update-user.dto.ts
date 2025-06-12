@@ -5,8 +5,10 @@ import {
   IsOptional,
   IsString,
   Matches,
+  IsMongoId,
 } from 'class-validator';
 import { UserRole } from '@domain/users/entities/user.entity';
+import { Types } from 'mongoose';
 
 export class UpdateUserDto {
   @ApiProperty({
@@ -46,4 +48,12 @@ export class UpdateUserDto {
   })
   @IsOptional()
   isActive?: boolean;
+
+  @ApiProperty({
+    description: 'The organization ID this user belongs to',
+    required: false,
+  })
+  @IsOptional()
+  @IsMongoId({ message: 'Organization ID must be a valid MongoDB ObjectId' })
+  organizationId?: Types.ObjectId;
 }

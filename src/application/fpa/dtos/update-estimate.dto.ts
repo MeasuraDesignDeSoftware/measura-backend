@@ -11,6 +11,7 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsEnum,
+  IsPositive,
 } from 'class-validator';
 import { EstimateStatus } from '@domain/fpa/entities/estimate.entity';
 
@@ -47,15 +48,56 @@ export class UpdateEstimateDto {
   @IsEnum(EstimateStatus)
   status?: EstimateStatus;
 
+  // Enhanced project configuration fields
   @ApiProperty({
-    description: 'The productivity factor (hours per function point)',
-    example: 10,
+    description: 'Average daily working hours per person',
+    example: 8,
     minimum: 1,
+    maximum: 24,
     required: false,
   })
   @IsOptional()
   @IsNumber()
   @Min(1)
+  @Max(24)
+  averageDailyWorkingHours?: number;
+
+  @ApiProperty({
+    description: 'Number of people working on the project',
+    example: 4,
+    minimum: 1,
+    maximum: 100,
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(100)
+  teamSize?: number;
+
+  @ApiProperty({
+    description: 'Hourly rate in Brazilian Reais (BRL)',
+    example: 150.0,
+    minimum: 0.01,
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  @Min(0.01)
+  hourlyRateBRL?: number;
+
+  @ApiProperty({
+    description: 'The productivity factor (hours per function point)',
+    example: 10,
+    minimum: 1,
+    maximum: 100,
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(100)
   productivityFactor?: number;
 
   @ApiProperty({

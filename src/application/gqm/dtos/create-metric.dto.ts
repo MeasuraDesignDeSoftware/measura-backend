@@ -10,10 +10,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import {
-  MetricType,
-  MetricUnit,
-} from '@domain/gqm/entities/metric.entity';
+import { MetricType, MetricUnit } from '@domain/gqm/entities/metric.entity';
 import { Type } from 'class-transformer';
 export class CreateMetricDto {
   @ApiProperty({

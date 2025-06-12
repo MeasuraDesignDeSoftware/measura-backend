@@ -44,6 +44,10 @@ export class Project {
   @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }] })
   teamMembers: Types.ObjectId[];
 
+  @ApiProperty({ description: 'The organization this project belongs to' })
+  @Prop({ type: Types.ObjectId, ref: 'Organization', required: true })
+  organizationId: Types.ObjectId;
+
   @ApiProperty({ description: 'The date when the project was created' })
   createdAt: Date;
 

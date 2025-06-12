@@ -8,6 +8,7 @@ import {
   IsDate,
   IsArray,
   ArrayMaxSize,
+  IsMongoId,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -32,6 +33,14 @@ export class CreateProjectDto {
   @MinLength(10)
   @MaxLength(1000)
   description: string;
+
+  @ApiProperty({
+    description: 'The organization this project belongs to',
+    example: '60a1e2c7b9b5a50d944b1e34',
+  })
+  @IsNotEmpty()
+  @IsMongoId({ message: 'Organization ID must be a valid MongoDB ObjectId' })
+  organizationId: string;
 
   @ApiProperty({
     description: 'The start date of the project',
