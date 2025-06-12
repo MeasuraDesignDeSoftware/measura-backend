@@ -13,15 +13,15 @@ import {
 import {
   IGoalRepository,
   GOAL_REPOSITORY,
-} from '@domain/goals/interfaces/goal.repository.interface';
+} from '@domain/gqm/interfaces/goal.repository.interface';
 import {
   IObjectiveRepository,
   OBJECTIVE_REPOSITORY,
-} from '@domain/objectives/interfaces/objective.repository.interface';
+} from '@domain/gqm/interfaces/objective.repository.interface';
 import { Plan, PlanStatus } from '@domain/plans/entities/plan.entity';
-import { CreatePlanDto } from '@domain/plans/dtos/create-plan.dto';
-import { UpdatePlanDto } from '@domain/plans/dtos/update-plan.dto';
-import { PlanDto } from '@domain/plans/dtos/plan.dto';
+import { CreatePlanDto } from '@application/plans/dtos/create-plan.dto';
+import { UpdatePlanDto } from '@application/plans/dtos/update-plan.dto';
+import { PlanDto } from '@application/plans/dtos/plan.dto';
 
 @Injectable()
 export class PlanService {

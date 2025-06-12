@@ -68,6 +68,6 @@ export class RateLimitGuard implements CanActivate {
         }
       },
       10 * 60 * 1000,
-    ); // Clean up every 10 minutes
+    );
   }
 }

@@ -6,6 +6,7 @@ import {
   ConflictException,
   Logger,
   InternalServerErrorException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -20,16 +21,38 @@ import {
   IUserRepository,
   USER_REPOSITORY,
 } from '@domain/users/interfaces/user.repository.interface';
-import { LoginDto } from '@interfaces/api/dtos/auth/login.dto';
-import { FirebaseLoginDto } from '@interfaces/api/dtos/auth/firebase-login.dto';
-import { RegisterDto } from '@interfaces/api/dtos/auth/register.dto';
-import { RefreshTokenDto } from '@interfaces/api/dtos/auth/refresh-token.dto';
-import { PasswordResetRequestDto } from '@interfaces/api/dtos/auth/password-reset-request.dto';
-import { PasswordResetDto } from '@interfaces/api/dtos/auth/password-reset.dto';
-import { AuthResponseDto } from '@interfaces/api/dtos/auth/auth-response.dto';
+import { LoginDto } from '@application/auth/dtos/login.dto';
+import { FirebaseLoginDto } from '@application/auth/dtos/firebase-login.dto';
+import { RegisterDto } from '@application/auth/dtos/register.dto';
+import { RefreshTokenDto } from '@application/auth/dtos/refresh-token.dto';
+import { PasswordResetRequestDto } from '@application/auth/dtos/password-reset-request.dto';
+import { PasswordResetDto } from '@application/auth/dtos/password-reset.dto';
+import { AuthResponseDto } from '@application/auth/dtos/auth-response.dto';
 import { FirebaseAdminService } from '@infrastructure/external-services/firebase/firebase-admin.service';
 import { EmailService } from '@infrastructure/external-services/email/email.service';
 import * as admin from 'firebase-admin';
+
+/**
+ * ========================================
+ * TEMPORARY EMAIL VERIFICATION DISABLED
+ * ========================================
+ *
+ * The following changes have been made temporarily for development purposes:
+ *
+ * 1. In validateUser() method (lines ~65-69):
+ *    - Email verification check is commented out
+ *    - Users can login without verifying their email
+ *
+ * 2. In register() method (lines ~108):
+ *    - New users are created with isEmailVerified: true
+ *    - This allows immediate login after registration
+ *
+ * TO RE-ENABLE EMAIL VERIFICATION:
+ * 1. Uncomment the email verification check in validateUser()
+ * 2. Change isEmailVerified: true back to isEmailVerified: false in register()
+ *
+ * ========================================
+ */
 
 interface FirebaseAuthUser {
   email: string;
@@ -61,6 +84,13 @@ export class AuthService {
       );
     }
 
+    // TODO: TEMPORARILY DISABLED - Remove this comment to re-enable email verification
+    // if (!user.isEmailVerified) {
+    //   throw new UnauthorizedException(
+    //     'Please verify your email address before logging in. Check your inbox for a verification email.',
+    //   );
+    // }
+
     const isPasswordValid = await bcrypt.compare(password, user.password!);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
@@ -70,7 +100,10 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto): Promise<AuthResponseDto> {
-    const user = await this.validateUser(loginDto.login, loginDto.password);
+    const user = await this.validateUser(
+      loginDto.usernameOrEmail,
+      loginDto.password,
+    );
     return this.generateToken(user);
   }
 
@@ -99,9 +132,9 @@ export class AuthService {
       username: registerDto.username,
       password: hashedPassword,
       provider: AuthProvider.LOCAL,
-      role: UserRole.USER,
+      role: registerDto.role || UserRole.USER,
       isActive: true,
-      isEmailVerified: false,
+      isEmailVerified: true,
     });
 
     if (newUser && newUser._id) {
@@ -117,9 +150,16 @@ export class AuthService {
             newUser.email,
             verificationToken,
           );
+          this.logger.log(
+            `Verification email sent successfully to ${newUser.email}`,
+          );
         } catch (error) {
           this.logger.error(
             `Failed to send verification email to ${newUser.email}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          );
+          // Don't throw error here - user is still created, they can request resend
+          this.logger.warn(
+            `User ${userId} created but verification email failed to send`,
           );
         }
       }
@@ -135,7 +175,6 @@ export class AuthService {
       const decodedToken = await this.firebaseAdminService.verifyIdToken(
         firebaseLoginDto.idToken,
       );
-
       const firebaseUser = this.extractFirebaseUserInfo(decodedToken);
       let user = await this.userRepository.findByProviderAndEmail(
         AuthProvider.GOOGLE,
@@ -410,6 +449,89 @@ export class AuthService {
     }
   }
 
+  async resendVerificationEmail(email: string): Promise<void> {
+    const user = await this.userRepository.findByEmail(email);
+
+    if (!user) {
+      // Don't reveal if email exists for security reasons
+      this.logger.debug(
+        `Verification email resend requested for non-existent email: ${email}`,
+      );
+      return;
+    }
+
+    if (user.provider !== AuthProvider.LOCAL) {
+      throw new BadRequestException(
+        'This account was not created with email/password',
+      );
+    }
+
+    if (user.isEmailVerified) {
+      throw new BadRequestException('Email is already verified');
+    }
+
+    // Generate new verification token
+    const verificationToken = String(uuidv4());
+    const hashedVerificationToken = await bcrypt.hash(verificationToken, 10);
+    const verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    if (user._id && typeof user._id.toString === 'function') {
+      const userId = user._id.toString();
+      await this.userRepository.setVerificationToken(
+        userId,
+        hashedVerificationToken,
+        verificationTokenExpires,
+      );
+
+      try {
+        await this.emailService.sendVerificationEmail(email, verificationToken);
+        this.logger.log(`Verification email resent to ${email}`);
+      } catch (error) {
+        this.logger.error(
+          `Failed to resend verification email to ${email}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        );
+        throw new ServiceUnavailableException(
+          'Failed to send verification email',
+        );
+      }
+    }
+  }
+
+  async testEmailService(email: string): Promise<void> {
+    try {
+      const testSubject = 'Measura Email Service Test';
+      const testHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">Email Service Test</h2>
+          <p>This is a test email to verify that the Measura email service is working correctly.</p>
+          <p>If you received this email, the email configuration is working properly.</p>
+          <p>Time sent: ${new Date().toISOString()}</p>
+          <p>Best regards,<br>The Measura Team</p>
+        </div>
+      `;
+
+      await this.emailService.sendEmail(email, testSubject, testHtml);
+      this.logger.log(`Test email sent successfully to ${email}`);
+    } catch (error) {
+      this.logger.error(
+        `Test email failed for ${email}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      throw error;
+    }
+  }
+
+  getEmailDebugInfo(): Record<string, any> {
+    return {
+      emailHost: this.configService.get<string>('app.email.host'),
+      emailPort: this.configService.get<number>('app.email.port'),
+      emailUser: this.configService.get<string>('app.email.user'),
+      emailFrom: this.configService.get<string>('app.email.from'),
+      frontendUrl: this.configService.get<string>('app.email.frontendUrl'),
+      hasEmailPassword: !!this.configService.get<string>('app.email.pass'),
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   private async generateToken(user: User): Promise<AuthResponseDto> {
     if (!user._id) {
       throw new BadRequestException('Invalid user data for token generation');
@@ -438,38 +560,7 @@ export class AuthService {
     const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
     await this.userRepository.updateRefreshToken(userId, refreshTokenHash);
 
-    const expiresInStr =
-      this.configService.get<string>('app.jwt.expiresIn') || '1h';
-    let expiresIn = 3600; // Default to 1 hour (in seconds)
-
-    const timeUnits: Record<string, number> = {
-      s: 1, // seconds
-      m: 60, // minutes
-      h: 3600, // hours
-      d: 86400, // days
-      w: 604800, // weeks
-    };
-
-    const match = expiresInStr.match(/^(\d+)([smhdw])$/);
-    if (match) {
-      const value = parseInt(match[1], 10);
-      const unit = match[2];
-      if (
-        unit === 's' ||
-        unit === 'm' ||
-        unit === 'h' ||
-        unit === 'd' ||
-        unit === 'w'
-      ) {
-        expiresIn = value * timeUnits[unit];
-      }
-    }
-
-    return {
-      accessToken,
-      refreshToken,
-      expiresIn,
-    };
+    return AuthResponseDto.fromUser(user, accessToken, refreshToken);
   }
 
   private async generateUniqueUsername(baseUsername: string): Promise<string> {

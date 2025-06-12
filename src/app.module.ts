@@ -2,22 +2,35 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { WinstonModule } from 'nest-winston';
-import { GoalsModule } from './goals.module';
-import { AuthModule } from './auth.module';
-import { QuestionsModule } from './questions.module';
-import { MetricsModule } from './metrics.module';
-import { GQMModule } from './gqm.module';
-import { RootObjectivesModule } from './objectives.module';
-import { PlansModule } from './plans.module';
-import { GQMControllerModule } from './interfaces/api/controllers/gqm/gqm.module';
-import { MetricsControllerModule } from './interfaces/api/controllers/metrics/metrics.module';
-import appConfig from '@shared/config/app.config';
-import { winstonConfig } from '@shared/config/winston.config';
+
+// Business Logic Modules
+import { AuthModule } from '@app/modules/auth/auth.module';
+import { GQMModule } from '@app/modules/gqm/gqm.module';
+import { PlansModule } from '@app/modules/plans/plans.module';
+import { ProjectsModule } from '@app/modules/projects/projects.module';
+import { FPAModule } from '@app/modules/fpa/fpa.module';
+import { UsersModule } from '@app/modules/users/users.module';
+import { OrganizationsModule } from '@app/modules/organizations/organizations.module';
+
+// Controller Modules
+import { GQMControllerModule } from '@controllers/gqm/gqm.module';
+import { MetricsControllerModule } from '@controllers/gqm/metrics.module';
+import { ObjectivesModule as ObjectivesControllerModule } from '@controllers/gqm/objectives.module';
+import { EstimatesModule } from '@controllers/fpa/estimates.module';
+import { EstimatesComponentsModule } from '@controllers/fpa/estimates-components.module';
+import { PlansModule as PlansControllerModule } from '@controllers/plans/plans.module';
+import { OrganizationsControllerModule } from '@controllers/organizations/organizations.module';
+import { ProjectsControllerModule } from '@controllers/projects/projects.module';
+
+import appConfig from '@app/config/app.config';
+import { winstonConfig } from '@app/config/winston.config';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: '.env',
+      expandVariables: true,
       load: [appConfig],
     }),
 
@@ -30,15 +43,24 @@ import { winstonConfig } from '@shared/config/winston.config';
 
     WinstonModule.forRoot(winstonConfig),
 
-    GoalsModule,
+    // Business Logic Modules
     AuthModule,
-    QuestionsModule,
-    MetricsModule,
     GQMModule,
-    RootObjectivesModule,
     PlansModule,
+    ProjectsModule,
+    FPAModule,
+    UsersModule,
+    OrganizationsModule,
+
+    // Controller Modules
     GQMControllerModule,
     MetricsControllerModule,
+    ObjectivesControllerModule,
+    EstimatesModule,
+    EstimatesComponentsModule,
+    PlansControllerModule,
+    OrganizationsControllerModule,
+    ProjectsControllerModule,
   ],
   controllers: [],
   providers: [],

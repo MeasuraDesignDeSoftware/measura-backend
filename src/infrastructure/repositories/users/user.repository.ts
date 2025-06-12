@@ -277,10 +277,9 @@ export class UserRepository implements IUserRepository {
         this.logger.warn(`Invalid verification token provided`);
         return null;
       }
-      const hashed = crypto.createHash('sha256').update(token).digest('hex');
       return this.userModel
         .findOne({
-          verificationToken: hashed,
+          verificationToken: { $exists: true, $ne: null },
           verificationTokenExpires: { $gt: new Date() },
         })
         .exec();
@@ -326,15 +325,11 @@ export class UserRepository implements IUserRepository {
         return;
       }
 
-      const hashedVerificationToken = crypto
-        .createHash('sha256')
-        .update(token)
-        .digest('hex');
       await this.userModel
         .findByIdAndUpdate(
           userId,
           {
-            verificationToken: hashedVerificationToken,
+            verificationToken: token,
             verificationTokenExpires: tokenExpires,
           },
           { new: true },

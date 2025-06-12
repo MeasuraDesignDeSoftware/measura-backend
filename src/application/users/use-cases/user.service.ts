@@ -15,8 +15,8 @@ import {
   UserRole,
   AuthProvider,
 } from '@domain/users/entities/user.entity';
-import { CreateUserDto } from '../../../interfaces/api/dtos/users/create-user.dto';
-import { UpdateUserDto } from '../../../interfaces/api/dtos/users/update-user.dto';
+import { CreateUserDto } from '@application/users/dtos/create-user.dto';
+import { UpdateUserDto } from '@application/users/dtos/update-user.dto';
 
 @Injectable()
 export class UserService {
@@ -100,15 +100,7 @@ export class UserService {
       }
     }
 
-    let hashedPassword: string | undefined;
-    if (updateUserDto.password) {
-      hashedPassword = await bcrypt.hash(updateUserDto.password, 10);
-    }
-
-    const updatedUser = await this.userRepository.update(id, {
-      ...updateUserDto,
-      password: hashedPassword,
-    });
+    const updatedUser = await this.userRepository.update(id, updateUserDto);
 
     if (!updatedUser) {
       throw new NotFoundException(`Failed to update user with ID "${id}"`);

@@ -13,30 +13,30 @@ import {
 import {
   IGoalRepository,
   GOAL_REPOSITORY,
-} from '@domain/goals/interfaces/goal.repository.interface';
+} from '@domain/gqm/interfaces/goal.repository.interface';
 import {
   IObjectiveRepository,
   OBJECTIVE_REPOSITORY,
-} from '@domain/objectives/interfaces/objective.repository.interface';
+} from '@domain/gqm/interfaces/objective.repository.interface';
 import {
   IQuestionRepository,
   QUESTION_REPOSITORY,
-} from '@domain/questions/interfaces/question.repository.interface';
+} from '@domain/gqm/interfaces/question.repository.interface';
 import {
   IMetricRepository,
   METRIC_REPOSITORY,
-} from '@domain/metrics/interfaces/metric.repository.interface';
-import { PlanDto } from '@domain/plans/dtos/plan.dto';
-import { GoalDto } from '@domain/goals/dtos/goal.dto';
-import { ObjectiveDto } from '@domain/objectives/dtos/objective.dto';
-import { QuestionDto } from '@domain/questions/dtos/question.dto';
-import { MetricDto } from '@domain/metrics/dtos/metric.dto';
+} from '@domain/gqm/interfaces/metric.repository.interface';
+import { PlanDto } from '@application/plans/dtos/plan.dto';
+import { GoalDto } from '@application/gqm/dtos/goal.dto';
+import { ObjectiveDto } from '@application/gqm/dtos/objective.dto';
+import { QuestionDto } from '@application/gqm/dtos/question.dto';
+import { MetricDto } from '@application/gqm/dtos/metric.dto';
 import { Plan, PlanStatus } from '@domain/plans/entities/plan.entity';
 import { Types } from 'mongoose';
-import { Goal } from '@domain/goals/entities/goal.entity';
-import { Objective } from '@domain/objectives/entities/objective.entity';
-import { Question } from '@domain/questions/entities/question.entity';
-import { Metric } from '@domain/metrics/entities/metric.entity';
+import { Goal } from '@domain/gqm/entities/goal.entity';
+import { Objective } from '@domain/gqm/entities/objective.entity';
+import { Question } from '@domain/gqm/entities/question.entity';
+import { Metric } from '@domain/gqm/entities/metric.entity';
 import * as mongoose from 'mongoose';
 import * as puppeteer from 'puppeteer';
 

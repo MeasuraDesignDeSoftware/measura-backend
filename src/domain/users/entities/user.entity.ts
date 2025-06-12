@@ -86,6 +86,10 @@ export class User {
   @Prop()
   resetTokenExpires?: Date;
 
+  @ApiProperty({ description: 'The organization this user belongs to' })
+  @Prop({ type: Types.ObjectId, ref: 'Organization', required: false })
+  organizationId?: Types.ObjectId;
+
   @ApiProperty({ description: 'The date when the user was created' })
   createdAt: Date;
 
