@@ -33,7 +33,7 @@ import { UpdateEstimateDto } from '@application/fpa/dtos/update-estimate.dto';
 import {
   FunctionPointCalculator,
   EstimationMetrics,
-} from 'src/domain/fpa/services/function-point-calculator.service';
+} from '@domain/fpa/services/function-point-calculator.service';
 
 @ApiTags('estimates')
 @Controller('estimates')

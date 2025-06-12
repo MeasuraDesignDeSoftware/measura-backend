@@ -4,13 +4,17 @@ import {
   ValidationArguments,
 } from 'class-validator';
 
+interface ValidatableObject {
+  [key: string]: unknown;
+}
+
 /**
  * Creates a validator to check if a field matches another field.
  * @param property The property to compare with
  * @param validationOptions Additional validation options
  */
 export function Match(property: string, validationOptions?: ValidationOptions) {
-  return function (object: any, propertyName: string) {
+  return function (object: object, propertyName: string) {
     registerDecorator({
       name: 'match',
       target: object.constructor,
@@ -20,9 +24,10 @@ export function Match(property: string, validationOptions?: ValidationOptions) {
         message: `${propertyName} must match ${property}`,
       },
       validator: {
-        validate(value: any, args: ValidationArguments) {
-          const [relatedPropertyName] = args.constraints;
-          const relatedValue = (args.object as any)[relatedPropertyName];
+        validate(value: unknown, args: ValidationArguments) {
+          const [relatedPropertyName] = args.constraints as string[];
+          const relatedObject = args.object as ValidatableObject;
+          const relatedValue = relatedObject[relatedPropertyName];
           return value === relatedValue;
         },
       },
