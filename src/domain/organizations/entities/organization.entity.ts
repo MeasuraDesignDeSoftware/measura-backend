@@ -25,6 +25,24 @@ export class Organization {
   @Prop()
   industry?: string;
 
+  @ApiProperty({ description: 'The mission statement of the organization' })
+  @Prop({ maxlength: 2000 })
+  mission?: string;
+
+  @ApiProperty({ description: 'The vision statement of the organization' })
+  @Prop({ maxlength: 2000 })
+  vision?: string;
+
+  @ApiProperty({ description: 'The core values of the organization' })
+  @Prop({ maxlength: 2000 })
+  values?: string;
+
+  @ApiProperty({
+    description: 'The organizational objectives (newline-separated list)',
+  })
+  @Prop({ maxlength: 5000 })
+  organizationalObjectives?: string;
+
   @ApiProperty({
     description: 'The ID of the user who created the organization',
   })

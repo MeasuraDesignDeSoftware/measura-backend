@@ -153,4 +153,41 @@ export class OrganizationController {
   async remove(@Param('id') id: string) {
     return this.organizationService.remove(id);
   }
+
+  @Get(':id/objectives')
+  @ApiOperation({ summary: 'Get parsed organizational objectives' })
+  @ApiParam({
+    name: 'id',
+    description: 'The id of the organization',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Return parsed organizational objectives.',
+  })
+  @ApiResponse({ status: 404, description: 'Organization not found.' })
+  async getOrganizationalObjectives(@Param('id') id: string) {
+    const organization = await this.organizationService.findOne(id);
+
+    if (!organization.organizationalObjectives) {
+      return { data: [] };
+    }
+
+    // Parse objectives from string format
+    const objectivesText = organization.organizationalObjectives;
+    const lines = objectivesText.split('\n').filter((line) => line.trim());
+
+    const objectives = lines.map((line, index) => {
+      // Remove numbering patterns like "1)", "1.", "1 -", etc.
+      const cleanedTitle = line.replace(/^\s*\d+[).\-\s]\s*/, '').trim();
+      return {
+        id: `obj-${index + 1}`,
+        title: cleanedTitle,
+        description: cleanedTitle, // Could be enhanced with more sophisticated parsing
+        order: index + 1,
+      };
+    });
+
+    return { data: objectives };
+  }
+
 }
