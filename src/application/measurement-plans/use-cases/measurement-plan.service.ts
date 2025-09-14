@@ -29,12 +29,14 @@ import {
   CreateMeasurementDto,
   UpdateMeasurementDto,
 } from '../dtos';
+import { ProjectService } from '@application/projects/use-cases/project.service';
 
 @Injectable()
 export class MeasurementPlanService {
   constructor(
     @Inject(MEASUREMENT_PLAN_REPOSITORY)
     private readonly measurementPlanRepository: IMeasurementPlanRepository,
+    private readonly projectService: ProjectService,
   ) {}
 
   // Basic CRUD operations
@@ -138,8 +140,17 @@ export class MeasurementPlanService {
       throw new ForbiddenException('Access denied to this measurement plan');
     }
 
+    // Fetch associated project name
+    let associatedProjectName = 'N/A';
+    try {
+      const project = await this.projectService.findOne(plan.associatedProject.toString());
+      associatedProjectName = project.name;
+    } catch (error) {
+      // If project not found, keep default 'N/A'
+    }
+
     const stats = await this.measurementPlanRepository.getPlanStatistics(id);
-    return this.mapToResponseDto(plan, stats);
+    return this.mapToResponseDto(plan, stats, associatedProjectName);
   }
 
   async update(
@@ -740,12 +751,14 @@ export class MeasurementPlanService {
   private mapToResponseDto(
     plan: MeasurementPlan,
     stats: any,
+    associatedProjectName?: string,
   ): MeasurementPlanResponseDto {
     return {
       ...this.mapToSummaryDto(plan, stats),
       organizationId: plan.organizationId.toString(),
       createdBy: plan.createdBy.toString(),
       objectives: plan.objectives,
+      associatedProjectName,
     };
   }
 }

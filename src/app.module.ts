@@ -4,6 +4,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { WinstonModule } from 'nest-winston';
 
 import { AppController } from './app.controller';
+import { FilesController } from '@controllers/files/files.controller';
 
 // Business Logic Modules
 import { AuthModule } from '@app/modules/auth/auth.module';
@@ -56,7 +57,7 @@ import { winstonConfig } from '@app/config/winston.config';
     OrganizationsControllerModule,
     ProjectsControllerModule,
   ],
-  controllers: [AppController],
+  controllers: [AppController, FilesController],
   providers: [],
 })
 export class AppModule {}

@@ -17,6 +17,7 @@ import {
 import { JwtAuthGuard } from '@shared/utils/guards/jwt-auth.guard';
 import { ParseMongoIdPipe } from '@shared/utils/pipes/parse-mongo-id.pipe';
 import { MeasurementPlanService } from '@application/measurement-plans/use-cases/measurement-plan.service';
+import { ExportService } from '@application/measurement-plans/use-cases/export.service';
 import {
   ExportMeasurementPlanDto,
   ExportResponseDto,
@@ -32,14 +33,15 @@ interface AuthenticatedRequest {
 
 @ApiTags('Measurement Plans Export')
 @Controller('measurement-plans')
-@UseGuards(JwtAuthGuard)
-@ApiBearerAuth()
 export class MeasurementPlansExportController {
   constructor(
     private readonly measurementPlanService: MeasurementPlanService,
+    private readonly exportService: ExportService,
   ) {}
 
   @Post(':organizationId/:planId/export')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Export measurement plan as PDF or DOCX' })
   @ApiParam({ name: 'organizationId', description: 'Organization ID' })
   @ApiParam({ name: 'planId', description: 'Plan ID' })
@@ -66,50 +68,29 @@ export class MeasurementPlansExportController {
       throw new ForbiddenException('Access denied to this organization');
     }
 
-    // First verify the plan exists and user has access
-    await this.measurementPlanService.findOne(
+    // Generate the actual export file
+    const { filePath, filename } = await this.exportService.generateExport(
       planId,
       organizationId,
+      exportDto.format,
+      exportDto.options,
     );
 
-    // For now, return a mock response since implementing PDF/DOCX generation
-    // requires additional dependencies like puppeteer or docx
-    const filename = `measurement-plan-${planId}.${exportDto.format}`;
-    const downloadUrl = `/api/exports/${filename}`;
+    const downloadUrl = `/files/exports/${filename}`;
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-    // TODO: Implement actual PDF/DOCX generation
-    // This would typically involve:
-    // 1. Creating a template engine (Handlebars, Mustache, etc.)
-    // 2. Generating PDF with puppeteer or similar
-    // 3. Generating DOCX with docx library
-    // 4. Storing temporary files
-    // 5. Setting up cleanup job for expired files
+    // Schedule file cleanup after expiration
+    setTimeout(async () => {
+      await this.exportService.cleanupFile(filePath);
+    }, 24 * 60 * 60 * 1000);
 
-    const mockResponse: ExportResponseDto = {
+    const response: ExportResponseDto = {
       downloadUrl,
       filename,
       expiresAt: expiresAt.toISOString(),
     };
 
-    return mockResponse;
+    return response;
   }
 
-  // Placeholder for actual file download endpoint
-  // This would be implemented once export generation is complete
-  /*
-  @Get('exports/:filename')
-  @ApiOperation({ summary: 'Download exported file' })
-  @ApiParam({ name: 'filename', description: 'Export filename' })
-  @Header('Content-Type', 'application/octet-stream')
-  async downloadExport(@Param('filename') filename: string): Promise<StreamableFile> {
-    // Implementation would:
-    // 1. Validate file exists and hasn't expired
-    // 2. Set appropriate content type based on file extension
-    // 3. Return file stream
-    // 4. Schedule file deletion after download
-
-    throw new NotFoundException('Export file not found or expired');
-  }
-  */
 }
