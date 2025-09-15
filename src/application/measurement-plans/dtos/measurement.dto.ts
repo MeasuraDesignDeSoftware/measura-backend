@@ -97,7 +97,6 @@ export class CreateMeasurementDto {
     message: 'Measurement responsible must not exceed 255 characters',
   })
   measurementResponsible?: string;
-
 }
 
 export class UpdateMeasurementDto extends CreateMeasurementDto {}

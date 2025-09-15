@@ -6,7 +6,11 @@ import {
   IsUrl,
   MaxLength,
   MinLength,
+  IsArray,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+import { CreateOrganizationalObjectiveDto } from './organizational-objective.dto';
 
 export class CreateOrganizationDto {
   @ApiProperty({
@@ -88,11 +92,39 @@ export class CreateOrganizationDto {
   values?: string;
 
   @ApiProperty({
-    description: 'The organizational objectives (newline-separated list)',
+    description: 'The organizational objectives',
+    type: [CreateOrganizationalObjectiveDto],
+    required: false,
+    example: [
+      {
+        title: 'Increase market share by 25%',
+        description: 'Expand customer base through strategic marketing and product improvements',
+        priority: 'HIGH',
+        status: 'PLANNING',
+        targetDate: '2024-12-31T23:59:59.000Z'
+      },
+      {
+        title: 'Launch 3 new product lines',
+        description: 'Develop and launch innovative products to diversify our portfolio',
+        priority: 'MEDIUM',
+        status: 'PLANNING',
+        targetDate: '2024-06-30T23:59:59.000Z'
+      }
+    ]
+  })
+  @IsOptional()
+  @IsArray({ message: 'Objectives must be an array' })
+  @ValidateNested({ each: true })
+  @Type(() => CreateOrganizationalObjectiveDto)
+  objectives?: CreateOrganizationalObjectiveDto[];
+
+  @ApiProperty({
+    description: 'Legacy organizational objectives (newline-separated list) - DEPRECATED. Use objectives array instead.',
     example:
       '1) Increase market share by 25%\n2) Launch 3 new product lines\n3) Expand to 5 new markets\n4) Achieve 95% customer satisfaction\n5) Reduce operational costs by 15%',
     required: false,
     maxLength: 5000,
+    deprecated: true,
   })
   @IsOptional()
   @IsString({ message: 'Organizational objectives must be a string' })

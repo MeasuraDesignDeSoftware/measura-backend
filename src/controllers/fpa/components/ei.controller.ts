@@ -33,7 +33,7 @@ import { UpdateEIDto } from '@application/fpa/dtos/components/update-ei.dto';
 import { ComplexityCalculator } from '@domain/fpa/services/complexity-calculator.service';
 
 @ApiTags('estimate-components')
-@Controller('estimates/:estimateId/ei')
+@Controller('estimates/:estimateId/components/ei')
 @UseGuards(JwtAuthGuard)
 export class EIController {
   constructor(
@@ -73,6 +73,7 @@ export class EIController {
       const eiToCreate: Partial<EI> = {
         ...eiData,
         projectId: estimate.projectId,
+        organizationId: estimate.organizationId, // Add organizationId from estimate
         complexity,
         functionPoints,
       };

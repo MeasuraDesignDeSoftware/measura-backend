@@ -9,8 +9,42 @@ import {
   IsArray,
   ArrayMaxSize,
   IsMongoId,
+  ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+
+export class CreateProjectObjectiveDto {
+  @ApiProperty({
+    description: 'The title of the objective',
+    example: 'Improve system performance',
+  })
+  @IsNotEmpty()
+  @IsString()
+  @MinLength(3)
+  @MaxLength(200)
+  title: string;
+
+  @ApiProperty({
+    description: 'The description of the objective',
+    example: 'Reduce page load times by 50% and improve user satisfaction',
+  })
+  @IsNotEmpty()
+  @IsString()
+  @MinLength(10)
+  @MaxLength(1000)
+  description: string;
+
+  @ApiProperty({
+    description:
+      'Array of organizational objective IDs this project objective is linked to',
+    type: [String],
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsMongoId({ each: true })
+  organizationalObjectiveIds?: string[];
+}
 
 export class CreateProjectDto {
   @ApiProperty({
@@ -72,4 +106,15 @@ export class CreateProjectDto {
   @IsArray()
   @ArrayMaxSize(50)
   teamMembers?: string[];
+
+  @ApiProperty({
+    description: 'Project objectives',
+    type: [CreateProjectObjectiveDto],
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateProjectObjectiveDto)
+  objectives?: CreateProjectObjectiveDto[];
 }

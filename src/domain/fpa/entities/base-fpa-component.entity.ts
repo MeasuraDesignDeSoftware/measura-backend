@@ -24,6 +24,10 @@ export class BaseFPAComponent {
   @Prop({ type: Types.ObjectId, ref: 'Project', required: true })
   projectId: Types.ObjectId;
 
+  @ApiProperty({ description: 'The organization this component belongs to' })
+  @Prop({ type: Types.ObjectId, ref: 'Organization', required: true })
+  organizationId: Types.ObjectId;
+
   @ApiProperty({ description: 'The complexity level of the component' })
   @Prop({
     type: String,

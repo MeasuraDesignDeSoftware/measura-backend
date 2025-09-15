@@ -4,6 +4,13 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export type ProjectDocument = Project & Document;
 
+export interface ProjectObjective {
+  _id: Types.ObjectId;
+  title: string;
+  description: string;
+  organizationalObjectiveIds: Types.ObjectId[]; // Links to organizational objectives
+}
+
 export enum ProjectStatus {
   PLANNING = 'PLANNING',
   IN_PROGRESS = 'IN_PROGRESS',
@@ -48,6 +55,24 @@ export class Project {
   @Prop({ type: Types.ObjectId, ref: 'Organization', required: true })
   organizationId: Types.ObjectId;
 
+  @ApiProperty({ description: 'The project objectives', type: [Object] })
+  @Prop({ type: [Object], default: [] })
+  objectives: ProjectObjective[];
+
+  @ApiProperty({
+    description: 'The measurement plan associated with this project',
+    required: false,
+  })
+  @Prop({ type: Types.ObjectId, ref: 'MeasurementPlan' })
+  measurementPlanId?: Types.ObjectId;
+
+  @ApiProperty({
+    description: 'The estimate associated with this project',
+    required: false,
+  })
+  @Prop({ type: Types.ObjectId, ref: 'Estimate' })
+  estimateId?: Types.ObjectId;
+
   @ApiProperty({ description: 'The date when the project was created' })
   createdAt: Date;
 
@@ -56,3 +81,10 @@ export class Project {
 }
 
 export const ProjectSchema = SchemaFactory.createForClass(Project);
+
+// Add indexes for performance
+ProjectSchema.index({ organizationId: 1 });
+ProjectSchema.index({ measurementPlanId: 1 });
+ProjectSchema.index({ estimateId: 1 });
+ProjectSchema.index({ status: 1 });
+ProjectSchema.index({ createdBy: 1 });

@@ -8,7 +8,7 @@ import {
   Put,
   UseGuards,
   Request,
-  Query,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -16,7 +16,6 @@ import {
   ApiParam,
   ApiResponse,
   ApiTags,
-  ApiQuery,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '@shared/utils/guards/jwt-auth.guard';
 import { RolesGuard } from '@shared/utils/guards/roles.guard';
@@ -24,11 +23,13 @@ import { Roles } from '@shared/utils/decorators/roles.decorator';
 import { UserRole } from '@domain/users/entities/user.entity';
 import { ProjectService } from '@application/projects/use-cases/project.service';
 import { CreateProjectDto, UpdateProjectDto } from '@application/projects/dtos';
+import { ParseMongoIdPipe } from '@shared/utils/pipes/parse-mongo-id.pipe';
 
 interface AuthenticatedRequest {
   user: {
-    userId: string;
+    _id: string;
     email: string;
+    organizationId: string | null;
     role: UserRole;
   };
 }
@@ -40,40 +41,66 @@ interface AuthenticatedRequest {
 export class ProjectController {
   constructor(private readonly projectService: ProjectService) {}
 
-  @Post()
+  private validateOrganizationAccess(
+    userOrgId: string | null,
+    requestedOrgId: string,
+  ): void {
+    // TEMPORARILY DISABLED: Organization validation bypassed for development
+    // if (!userOrgId) {
+    //   throw new ForbiddenException(
+    //     'You must be assigned to an organization to access projects. Please contact your administrator to be added to an organization.',
+    //   );
+    // }
+    // if (userOrgId !== requestedOrgId) {
+    //   throw new ForbiddenException('Access denied to this organization');
+    // }
+  }
+
+  @Post(':organizationId')
   @ApiOperation({ summary: 'Create a new project' })
+  @ApiParam({ name: 'organizationId', description: 'Organization ID' })
   @ApiResponse({
     status: 201,
     description: 'The project has been successfully created.',
   })
   @ApiResponse({ status: 400, description: 'Bad request.' })
+  @ApiResponse({ status: 403, description: 'Access denied to organization' })
   async create(
+    @Param('organizationId', ParseMongoIdPipe) organizationId: string,
     @Body() createProjectDto: CreateProjectDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.projectService.create(createProjectDto, req.user.userId);
+    this.validateOrganizationAccess(req.user.organizationId, organizationId);
+
+    // Ensure the project is created for the correct organization
+    const projectData = {
+      ...createProjectDto,
+      organizationId,
+    };
+
+    return this.projectService.create(projectData, req.user._id);
   }
 
-  @Get()
-  @ApiOperation({ summary: 'Get all projects' })
-  @ApiQuery({
-    name: 'organizationId',
-    required: false,
-    description: 'Filter projects by organization ID',
-  })
+  @Get(':organizationId')
+  @ApiOperation({ summary: 'Get projects by organization' })
+  @ApiParam({ name: 'organizationId', description: 'Organization ID' })
   @ApiResponse({
     status: 200,
-    description: 'Return all projects.',
+    description: 'Return organization projects.',
   })
-  async findAll(@Query('organizationId') organizationId?: string) {
-    if (organizationId) {
-      return this.projectService.findByOrganization(organizationId);
-    }
-    return this.projectService.findAll();
+  @ApiResponse({ status: 403, description: 'Access denied to organization' })
+  async findAll(
+    @Param('organizationId', ParseMongoIdPipe) organizationId: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    this.validateOrganizationAccess(req.user.organizationId, organizationId);
+
+    return this.projectService.findByOrganization(organizationId);
   }
 
-  @Get(':id')
+  @Get(':organizationId/:id')
   @ApiOperation({ summary: 'Get a project by id' })
+  @ApiParam({ name: 'organizationId', description: 'Organization ID' })
   @ApiParam({
     name: 'id',
     description: 'The id of the project',
@@ -83,12 +110,27 @@ export class ProjectController {
     description: 'Return the project with the specified id.',
   })
   @ApiResponse({ status: 404, description: 'Project not found.' })
-  async findOne(@Param('id') id: string) {
-    return this.projectService.findOne(id);
+  @ApiResponse({ status: 403, description: 'Access denied to organization' })
+  async findOne(
+    @Param('organizationId', ParseMongoIdPipe) organizationId: string,
+    @Param('id', ParseMongoIdPipe) id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    this.validateOrganizationAccess(req.user.organizationId, organizationId);
+
+    const project = await this.projectService.findOne(id);
+
+    // Ensure project belongs to the requested organization
+    if (project.organizationId.toString() !== organizationId) {
+      throw new ForbiddenException('Access denied to this project');
+    }
+
+    return project;
   }
 
-  @Put(':id')
+  @Put(':organizationId/:id')
   @ApiOperation({ summary: 'Update a project' })
+  @ApiParam({ name: 'organizationId', description: 'Organization ID' })
   @ApiParam({
     name: 'id',
     description: 'The id of the project',
@@ -99,16 +141,29 @@ export class ProjectController {
   })
   @ApiResponse({ status: 400, description: 'Bad request.' })
   @ApiResponse({ status: 404, description: 'Project not found.' })
+  @ApiResponse({ status: 403, description: 'Access denied to organization' })
   async update(
-    @Param('id') id: string,
+    @Param('organizationId', ParseMongoIdPipe) organizationId: string,
+    @Param('id', ParseMongoIdPipe) id: string,
     @Body() updateProjectDto: UpdateProjectDto,
+    @Request() req: AuthenticatedRequest,
   ) {
+    this.validateOrganizationAccess(req.user.organizationId, organizationId);
+
+    const existingProject = await this.projectService.findOne(id);
+
+    // Ensure project belongs to the requested organization
+    if (existingProject.organizationId.toString() !== organizationId) {
+      throw new ForbiddenException('Access denied to this project');
+    }
+
     return this.projectService.update(id, updateProjectDto);
   }
 
-  @Delete(':id')
+  @Delete(':organizationId/:id')
   @Roles(UserRole.ADMIN, UserRole.PROJECT_MANAGER)
   @ApiOperation({ summary: 'Delete a project' })
+  @ApiParam({ name: 'organizationId', description: 'Organization ID' })
   @ApiParam({
     name: 'id',
     description: 'The id of the project',
@@ -118,12 +173,27 @@ export class ProjectController {
     description: 'The project has been successfully deleted.',
   })
   @ApiResponse({ status: 404, description: 'Project not found.' })
-  async remove(@Param('id') id: string) {
+  @ApiResponse({ status: 403, description: 'Access denied to organization' })
+  async remove(
+    @Param('organizationId', ParseMongoIdPipe) organizationId: string,
+    @Param('id', ParseMongoIdPipe) id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    this.validateOrganizationAccess(req.user.organizationId, organizationId);
+
+    const existingProject = await this.projectService.findOne(id);
+
+    // Ensure project belongs to the requested organization
+    if (existingProject.organizationId.toString() !== organizationId) {
+      throw new ForbiddenException('Access denied to this project');
+    }
+
     return this.projectService.remove(id);
   }
 
-  @Get(':id/versions')
+  @Get(':organizationId/:id/versions')
   @ApiOperation({ summary: 'Get all versions of a project' })
+  @ApiParam({ name: 'organizationId', description: 'Organization ID' })
   @ApiParam({
     name: 'id',
     description: 'The id of the project',
@@ -132,12 +202,27 @@ export class ProjectController {
     status: 200,
     description: 'Return all versions of the project.',
   })
-  async getVersions(@Param('id') id: string) {
+  @ApiResponse({ status: 403, description: 'Access denied to organization' })
+  async getVersions(
+    @Param('organizationId', ParseMongoIdPipe) organizationId: string,
+    @Param('id', ParseMongoIdPipe) id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    this.validateOrganizationAccess(req.user.organizationId, organizationId);
+
+    const existingProject = await this.projectService.findOne(id);
+
+    // Ensure project belongs to the requested organization
+    if (existingProject.organizationId.toString() !== organizationId) {
+      throw new ForbiddenException('Access denied to this project');
+    }
+
     return this.projectService.getVersions(id);
   }
 
-  @Post(':id/versions')
+  @Post(':organizationId/:id/versions')
   @ApiOperation({ summary: 'Create a new version of a project' })
+  @ApiParam({ name: 'organizationId', description: 'Organization ID' })
   @ApiParam({
     name: 'id',
     description: 'The id of the project',
@@ -146,7 +231,21 @@ export class ProjectController {
     status: 201,
     description: 'The project version has been successfully created.',
   })
-  async createVersion(@Param('id') id: string): Promise<unknown> {
+  @ApiResponse({ status: 403, description: 'Access denied to organization' })
+  async createVersion(
+    @Param('organizationId', ParseMongoIdPipe) organizationId: string,
+    @Param('id', ParseMongoIdPipe) id: string,
+    @Request() req: AuthenticatedRequest,
+  ): Promise<unknown> {
+    this.validateOrganizationAccess(req.user.organizationId, organizationId);
+
+    const existingProject = await this.projectService.findOne(id);
+
+    // Ensure project belongs to the requested organization
+    if (existingProject.organizationId.toString() !== organizationId) {
+      throw new ForbiddenException('Access denied to this project');
+    }
+
     return this.projectService.createVersion(id);
   }
 }

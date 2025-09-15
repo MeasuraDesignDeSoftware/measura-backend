@@ -1,10 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  IsNotEmpty,
-  IsEnum,
-  IsOptional,
-  IsBoolean,
-} from 'class-validator';
+import { IsNotEmpty, IsEnum, IsOptional, IsBoolean } from 'class-validator';
 
 export enum ExportFormat {
   PDF = 'pdf',

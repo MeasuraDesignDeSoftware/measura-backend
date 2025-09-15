@@ -50,7 +50,6 @@ export class Measurement {
   })
   @Prop({ maxlength: 255 })
   measurementResponsible?: string;
-
 }
 
 @Schema()

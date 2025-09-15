@@ -164,6 +164,9 @@ export class MeasurementPlanResponseDto extends MeasurementPlanSummaryDto {
   @ApiProperty({ description: 'The objectives for this plan' })
   objectives: any[]; // Will be populated with full objective structure
 
-  @ApiProperty({ description: 'The name of the associated project', required: false })
+  @ApiProperty({
+    description: 'The name of the associated project',
+    required: false,
+  })
   associatedProjectName?: string;
 }

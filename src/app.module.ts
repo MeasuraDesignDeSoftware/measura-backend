@@ -24,6 +24,7 @@ import { ProjectsControllerModule } from '@controllers/projects/projects.module'
 import appConfig from '@app/config/app.config';
 
 import { winstonConfig } from '@app/config/winston.config';
+import { MigrateOrganizationalObjectivesService } from './migrations/migrate-organizational-objectives.service';
 
 @Module({
   imports: [
@@ -58,6 +59,6 @@ import { winstonConfig } from '@app/config/winston.config';
     ProjectsControllerModule,
   ],
   controllers: [AppController, FilesController],
-  providers: [],
+  providers: [MigrateOrganizationalObjectivesService],
 })
 export class AppModule {}

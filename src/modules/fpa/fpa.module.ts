@@ -35,6 +35,8 @@ import { TeamSizeEstimationService } from '@domain/fpa/services/team-size-estima
 import { ReportGeneratorService } from '@domain/fpa/services/report-generator.service';
 import { DocumentService } from '@domain/fpa/services/document.service';
 import { EstimateDocumentService } from '@domain/fpa/services/estimate-document.service';
+import { EstimateService } from '@application/fpa/use-cases/estimate.service';
+import { ProjectsModule } from '@modules/projects/projects.module';
 
 @Module({
   imports: [
@@ -47,6 +49,7 @@ import { EstimateDocumentService } from '@domain/fpa/services/estimate-document.
       { name: Estimate.name, schema: EstimateSchema },
       { name: DocumentEntity.name, schema: DocumentEntitySchema },
     ]),
+    ProjectsModule,
   ],
   providers: [
     Logger,
@@ -85,6 +88,7 @@ import { EstimateDocumentService } from '@domain/fpa/services/estimate-document.
     ReportGeneratorService,
     DocumentService,
     EstimateDocumentService,
+    EstimateService,
   ],
   exports: [
     ALI_REPOSITORY,
@@ -101,6 +105,7 @@ import { EstimateDocumentService } from '@domain/fpa/services/estimate-document.
     ReportGeneratorService,
     DocumentService,
     EstimateDocumentService,
+    EstimateService,
   ],
 })
 export class FPAModule {}

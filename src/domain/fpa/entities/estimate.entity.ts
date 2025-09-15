@@ -60,6 +60,10 @@ export class Estimate {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   createdBy: Types.ObjectId;
 
+  @ApiProperty({ description: 'The organization this estimate belongs to' })
+  @Prop({ type: Types.ObjectId, ref: 'Organization', required: true })
+  organizationId: Types.ObjectId;
+
   @ApiProperty({ description: 'The status of the estimate' })
   @Prop({ type: String, enum: EstimateStatus, default: EstimateStatus.DRAFT })
   status: EstimateStatus;
@@ -225,3 +229,11 @@ export class Estimate {
 }
 
 export const EstimateSchema = SchemaFactory.createForClass(Estimate);
+
+// Add indexes for performance
+EstimateSchema.index({ organizationId: 1 });
+EstimateSchema.index({ projectId: 1 });
+EstimateSchema.index({ createdBy: 1 });
+EstimateSchema.index({ status: 1 });
+EstimateSchema.index({ organizationId: 1, status: 1 });
+EstimateSchema.index({ organizationId: 1, projectId: 1 });

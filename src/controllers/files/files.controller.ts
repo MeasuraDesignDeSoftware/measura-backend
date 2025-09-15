@@ -6,12 +6,7 @@ import {
   StreamableFile,
   Res,
 } from '@nestjs/common';
-import {
-  ApiOperation,
-  ApiParam,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -29,7 +24,11 @@ export class FilesController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
     // Validate filename to prevent directory traversal attacks
-    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+    if (
+      filename.includes('..') ||
+      filename.includes('/') ||
+      filename.includes('\\')
+    ) {
       throw new NotFoundException('Invalid filename');
     }
 
@@ -42,9 +41,12 @@ export class FilesController {
 
     // Set appropriate content type based on file extension
     const ext = path.extname(filename).toLowerCase();
-    const contentType = ext === '.pdf' ? 'application/pdf' :
-                       ext === '.docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' :
-                       'application/octet-stream';
+    const contentType =
+      ext === '.pdf'
+        ? 'application/pdf'
+        : ext === '.docx'
+          ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+          : 'application/octet-stream';
 
     res.set({
       'Content-Type': contentType,
@@ -54,15 +56,18 @@ export class FilesController {
     const file = fs.createReadStream(filePath);
 
     // Schedule file deletion after download (5 minutes delay to ensure download completes)
-    setTimeout(() => {
-      try {
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
+    setTimeout(
+      () => {
+        try {
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        } catch (error) {
+          console.error('Error cleaning up file:', error);
         }
-      } catch (error) {
-        console.error('Error cleaning up file:', error);
-      }
-    }, 5 * 60 * 1000);
+      },
+      5 * 60 * 1000,
+    );
 
     return new StreamableFile(file);
   }

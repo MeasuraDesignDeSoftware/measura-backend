@@ -51,3 +51,8 @@ export class EI extends BaseFPAComponent {
 }
 
 export const EISchema = SchemaFactory.createForClass(EI);
+
+// Add indexes for performance
+EISchema.index({ organizationId: 1 });
+EISchema.index({ projectId: 1 });
+EISchema.index({ organizationId: 1, projectId: 1 });

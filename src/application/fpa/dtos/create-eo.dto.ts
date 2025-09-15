@@ -6,6 +6,7 @@ import {
   Min,
   IsOptional,
   MaxLength,
+  IsBoolean,
 } from 'class-validator';
 
 export class CreateEODto {
@@ -57,23 +58,22 @@ export class CreateEODto {
   primaryIntent: string;
 
   @ApiProperty({
-    description:
-      'Processing logic description - calculations, derived data, or business rules applied',
+    description: 'Output format and data presentation details',
     example:
-      'Calculates running balance, applies interest, formats currency, determines statement period',
+      'PDF format with email delivery, includes QR code for digital verification',
   })
   @IsNotEmpty()
   @IsString()
-  processingLogic: string;
+  outputFormat: string;
 
   @ApiProperty({
     description:
-      'Derived data elements produced by this output (calculations, totals, computed fields)',
-    example: 'Account balance, interest earned, total fees, payment due date',
+      'Indicates whether this output produces derived data (calculations, totals, computed fields)',
+    example: true,
   })
   @IsNotEmpty()
-  @IsString()
-  derivedData: string;
+  @IsBoolean()
+  derivedData: boolean;
 
   @ApiProperty({
     description:

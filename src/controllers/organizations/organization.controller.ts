@@ -97,7 +97,16 @@ export class OrganizationController {
     if (!user.organizationId) {
       return null;
     }
-    return this.organizationService.findOne(user.organizationId.toString());
+
+    // Handle invalid organizationId gracefully
+    const organization = await this.organizationService.findOne(user.organizationId.toString());
+    if (!organization) {
+      // If organization not found (possibly due to invalid ID), clear the user's organizationId
+      await this.userService.update(req.user._id, { organizationId: undefined });
+      return null;
+    }
+
+    return organization;
   }
 
   @Get(':id')
@@ -112,7 +121,7 @@ export class OrganizationController {
   })
   @ApiResponse({ status: 404, description: 'Organization not found.' })
   async findOne(@Param('id') id: string) {
-    return this.organizationService.findOne(id);
+    return this.organizationService.findOneOrThrow(id);
   }
 
   @Put(':id')
@@ -155,19 +164,25 @@ export class OrganizationController {
   }
 
   @Get(':id/objectives')
-  @ApiOperation({ summary: 'Get parsed organizational objectives' })
+  @ApiOperation({ summary: 'Get organizational objectives' })
   @ApiParam({
     name: 'id',
     description: 'The id of the organization',
   })
   @ApiResponse({
     status: 200,
-    description: 'Return parsed organizational objectives.',
+    description: 'Return organizational objectives.',
   })
   @ApiResponse({ status: 404, description: 'Organization not found.' })
   async getOrganizationalObjectives(@Param('id') id: string) {
-    const organization = await this.organizationService.findOne(id);
+    const organization = await this.organizationService.findOneOrThrow(id);
 
+    // First check for modern objectives array (current format)
+    if (organization.objectives && organization.objectives.length > 0) {
+      return { data: organization.objectives };
+    }
+
+    // Fall back to legacy string format for backward compatibility
     if (!organization.organizationalObjectives) {
       return { data: [] };
     }
@@ -189,5 +204,4 @@ export class OrganizationController {
 
     return { data: objectives };
   }
-
 }

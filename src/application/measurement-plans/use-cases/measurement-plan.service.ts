@@ -45,8 +45,22 @@ export class MeasurementPlanService {
     userId: string,
     organizationId: string,
   ): Promise<MeasurementPlan> {
-    // Validate that the user belongs to the organization
-    // (This would typically be done via a guard or middleware)
+    // Validate that the project belongs to the same organization
+    const project = await this.projectService.findOne(
+      createDto.associatedProject,
+    );
+    if (project.organizationId.toString() !== organizationId) {
+      throw new ForbiddenException(
+        'Cannot create measurement plan for project from different organization',
+      );
+    }
+
+    // Check if project already has a measurement plan
+    if (project.measurementPlanId) {
+      throw new BadRequestException(
+        'Project already has an associated measurement plan. Each project can have only one measurement plan.',
+      );
+    }
 
     // Assign order indexes to nested entities
     const objectivesWithIndexes =
@@ -78,7 +92,28 @@ export class MeasurementPlanService {
       objectives: objectivesWithIndexes,
     };
 
-    return await this.measurementPlanRepository.create(planData);
+    const createdPlan = await this.measurementPlanRepository.create(planData);
+
+    // Auto-link the measurement plan to the project
+    if (createDto.associatedProject) {
+      try {
+        const project = await this.projectService.findOne(
+          createDto.associatedProject,
+        );
+
+        // Ensure project belongs to the same organization
+        if (project.organizationId.toString() === organizationId) {
+          await this.projectService.update(createDto.associatedProject, {
+            measurementPlanId: createdPlan._id.toString(),
+          });
+        }
+      } catch (error) {
+        // If project linking fails, log error but don't fail the plan creation
+        console.warn('Failed to link measurement plan to project:', error);
+      }
+    }
+
+    return createdPlan;
   }
 
   async findAll(
@@ -143,7 +178,9 @@ export class MeasurementPlanService {
     // Fetch associated project name
     let associatedProjectName = 'N/A';
     try {
-      const project = await this.projectService.findOne(plan.associatedProject.toString());
+      const project = await this.projectService.findOne(
+        plan.associatedProject.toString(),
+      );
       associatedProjectName = project.name;
     } catch (error) {
       // If project not found, keep default 'N/A'
@@ -238,6 +275,18 @@ export class MeasurementPlanService {
       throw new ConflictException(
         'Cannot delete active or completed measurement plans',
       );
+    }
+
+    // Unlink from project before deletion
+    if (plan.associatedProject) {
+      try {
+        await this.projectService.update(plan.associatedProject.toString(), {
+          measurementPlanId: undefined,
+        });
+      } catch (error) {
+        // If project unlinking fails, log error but continue with deletion
+        console.warn('Failed to unlink measurement plan from project:', error);
+      }
     }
 
     const result = await this.measurementPlanRepository.delete(id);

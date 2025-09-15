@@ -33,7 +33,7 @@ import { UpdateALIDto } from '@application/fpa/dtos/components/update-ali.dto';
 import { ComplexityCalculator } from '@domain/fpa/services/complexity-calculator.service';
 
 @ApiTags('estimate-components')
-@Controller('estimates/:estimateId/ilf')
+@Controller('estimates/:estimateId/components/ilf')
 @UseGuards(JwtAuthGuard)
 export class ALIController {
   constructor(
@@ -73,6 +73,7 @@ export class ALIController {
       const aliToCreate: Partial<ALI> = {
         ...aliData,
         projectId: estimate.projectId,
+        organizationId: estimate.organizationId, // Add organizationId from estimate
         complexity,
         functionPoints,
       };

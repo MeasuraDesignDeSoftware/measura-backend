@@ -23,6 +23,11 @@ import { UsersModule } from '@app/modules/users/users.module';
     },
     OrganizationService,
   ],
-  exports: [ORGANIZATION_REPOSITORY, OrganizationService, UsersModule],
+  exports: [
+    ORGANIZATION_REPOSITORY,
+    OrganizationService,
+    UsersModule,
+    MongooseModule, // Export MongooseModule to make Organization model available
+  ],
 })
 export class OrganizationsModule {}

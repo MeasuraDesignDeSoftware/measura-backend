@@ -33,7 +33,7 @@ import { UpdateEODto } from '@application/fpa/dtos/components/update-eo.dto';
 import { ComplexityCalculator } from '@domain/fpa/services/complexity-calculator.service';
 
 @ApiTags('estimate-components')
-@Controller('estimates/:estimateId/eo')
+@Controller('estimates/:estimateId/components/eo')
 @UseGuards(JwtAuthGuard)
 export class EOController {
   constructor(
@@ -73,6 +73,7 @@ export class EOController {
       const eoToCreate: Partial<EO> = {
         ...eoData,
         projectId: estimate.projectId,
+        organizationId: estimate.organizationId, // Add organizationId from estimate
         complexity,
         functionPoints,
       };
