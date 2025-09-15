@@ -51,3 +51,8 @@ export class AIE extends BaseFPAComponent {
 }
 
 export const AIESchema = SchemaFactory.createForClass(AIE);
+
+// Add indexes for performance
+AIESchema.index({ organizationId: 1 });
+AIESchema.index({ projectId: 1 });
+AIESchema.index({ organizationId: 1, projectId: 1 });

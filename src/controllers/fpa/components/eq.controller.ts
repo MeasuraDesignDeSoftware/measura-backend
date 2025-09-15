@@ -34,7 +34,7 @@ import { UpdateEQDto } from '@application/fpa/dtos/components/update-eq.dto';
 import { ComplexityCalculator } from '@domain/fpa/services/complexity-calculator.service';
 
 @ApiTags('estimate-components')
-@Controller('estimates/:estimateId/eq')
+@Controller('estimates/:estimateId/components/eq')
 @UseGuards(JwtAuthGuard)
 export class EQController {
   constructor(
@@ -101,6 +101,7 @@ export class EQController {
       const eqToCreate: Partial<EQ> = {
         ...eqData,
         projectId: estimate.projectId,
+        organizationId: estimate.organizationId, // Add organizationId from estimate
         complexity,
         functionPoints,
       };

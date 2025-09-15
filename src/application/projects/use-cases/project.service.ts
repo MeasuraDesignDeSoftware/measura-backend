@@ -3,12 +3,16 @@ import {
   Inject,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   PROJECT_REPOSITORY,
   IProjectRepository,
 } from '@domain/projects/interfaces/project.repository.interface';
-import { Project } from '@domain/projects/entities/project.entity';
+import {
+  Project,
+  ProjectObjective,
+} from '@domain/projects/entities/project.entity';
 import { CreateProjectDto } from '@application/projects/dtos/create-project.dto';
 import { UpdateProjectDto } from '@application/projects/dtos/update-project.dto';
 import { Types } from 'mongoose';
@@ -20,16 +24,49 @@ export class ProjectService {
     private readonly projectRepository: IProjectRepository,
   ) {}
 
+  /**
+   * Validates that a project belongs to the specified organization
+   * @param projectId - The project ID to validate
+   * @param organizationId - The expected organization ID
+   * @throws ForbiddenException if project doesn't belong to organization
+   * @throws NotFoundException if project doesn't exist
+   */
+  async validateProjectAccess(
+    projectId: string,
+    organizationId: string,
+  ): Promise<void> {
+    const project = await this.projectRepository.findById(projectId);
+    if (!project) {
+      throw new NotFoundException(`Project with ID "${projectId}" not found`);
+    }
+
+    if (project.organizationId.toString() !== organizationId) {
+      throw new ForbiddenException('Access denied to this project');
+    }
+  }
+
   async create(
     createProjectDto: CreateProjectDto,
     createdBy: string,
   ): Promise<Project> {
+    // Convert objectives with generated IDs
+    const objectives: ProjectObjective[] =
+      createProjectDto.objectives?.map((obj) => ({
+        _id: new Types.ObjectId(),
+        title: obj.title,
+        description: obj.description,
+        organizationalObjectiveIds:
+          obj.organizationalObjectiveIds?.map((id) => new Types.ObjectId(id)) ||
+          [],
+      })) || [];
+
     const projectData: Partial<Project> = {
       ...createProjectDto,
       createdBy: new Types.ObjectId(createdBy),
       organizationId: new Types.ObjectId(createProjectDto.organizationId),
       teamMembers:
         createProjectDto.teamMembers?.map((id) => new Types.ObjectId(id)) || [],
+      objectives,
     };
 
     const newProject = await this.projectRepository.create(projectData);
@@ -102,6 +139,17 @@ export class ProjectService {
     const project = await this.projectRepository.findById(id);
     if (!project) {
       throw new NotFoundException(`Project with ID "${id}" not found`);
+    }
+
+    // Prevent deletion if project has linked measurement plan or estimate
+    if (project.measurementPlanId || project.estimateId) {
+      const linkedResources: string[] = [];
+      if (project.measurementPlanId) linkedResources.push('measurement plan');
+      if (project.estimateId) linkedResources.push('estimate');
+
+      throw new BadRequestException(
+        `Cannot delete project with linked ${linkedResources.join(' and ')}. Please delete or unlink the associated resources first.`,
+      );
     }
 
     const result = await this.projectRepository.delete(id);

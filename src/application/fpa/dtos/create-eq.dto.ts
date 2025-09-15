@@ -111,19 +111,21 @@ export class CreateEQDto {
     description: 'Search criteria and retrieval logic description',
     example:
       'Searches customer database using multiple criteria, applies security filters, returns formatted results',
+    required: false,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  retrievalLogic: string;
+  retrievalLogic?: string;
 
   @ApiProperty({
     description: 'Output format and data presentation details',
     example:
       'Returns customer details in JSON format with contact information, account status, and recent activity',
+    required: false,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  outputFormat: string;
+  outputFormat?: string;
 
   @ApiProperty({
     description:

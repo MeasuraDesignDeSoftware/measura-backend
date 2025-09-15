@@ -77,17 +77,19 @@ export class EQ extends BaseFPAComponent {
     description: 'Search criteria and retrieval logic description',
     example:
       'Searches customer database using multiple criteria, applies security filters, returns formatted results',
+    required: false,
   })
-  @Prop({ required: true })
-  retrievalLogic: string;
+  @Prop({ required: false })
+  retrievalLogic?: string;
 
   @ApiProperty({
     description: 'Output format and data presentation details',
     example:
       'Returns customer details in JSON format with contact information, account status, and recent activity',
+    required: false,
   })
-  @Prop({ required: true })
-  outputFormat: string;
+  @Prop({ required: false })
+  outputFormat?: string;
 
   @ApiProperty({
     description:
@@ -99,3 +101,8 @@ export class EQ extends BaseFPAComponent {
 }
 
 export const EQSchema = SchemaFactory.createForClass(EQ);
+
+// Add indexes for performance
+EQSchema.index({ organizationId: 1 });
+EQSchema.index({ projectId: 1 });
+EQSchema.index({ organizationId: 1, projectId: 1 });

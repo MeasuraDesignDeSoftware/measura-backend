@@ -53,7 +53,10 @@ export class DocumentService {
     @Inject(DOCUMENT_REPOSITORY)
     private readonly documentRepository: IDocumentRepository,
   ) {
-    this.ensureUploadDirectoryExists();
+    this.ensureUploadDirectoryExists().catch((error) => {
+      console.error('Failed to ensure upload directory exists:', error);
+      throw error;
+    });
   }
 
   private async ensureUploadDirectoryExists(): Promise<void> {

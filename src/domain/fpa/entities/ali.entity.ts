@@ -43,3 +43,8 @@ export class ALI extends BaseFPAComponent {
 }
 
 export const ALISchema = SchemaFactory.createForClass(ALI);
+
+// Add indexes for performance
+ALISchema.index({ organizationId: 1 });
+ALISchema.index({ projectId: 1 });
+ALISchema.index({ organizationId: 1, projectId: 1 });

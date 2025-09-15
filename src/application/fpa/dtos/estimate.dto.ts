@@ -24,6 +24,12 @@ export class EstimateDto {
   description: string;
 
   @ApiProperty({
+    description: 'The organization this estimate belongs to',
+    example: '60a1e2c7b9b5a50d944b1e37',
+  })
+  organizationId: string;
+
+  @ApiProperty({
     description: 'The project this estimate belongs to',
     type: ProjectDto,
   })

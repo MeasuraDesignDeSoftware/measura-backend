@@ -23,6 +23,7 @@
       "@application/*": ["src/application/*"],
       "@infrastructure/*": ["src/infrastructure/*"],
       "@controllers/*": ["src/controllers/*"],
+      "@modules/*": ["src/modules/*"],
       "@shared/*": ["src/shared/*"]
     }
   }

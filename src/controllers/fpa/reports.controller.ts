@@ -34,6 +34,21 @@ import {
 } from '@domain/fpa/services/report-generator.service';
 import * as puppeteer from 'puppeteer';
 
+function escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) && value.every((item) => typeof item === 'string')
+  );
+}
+
 @ApiTags('estimate-reports')
 @Controller('estimates/reports')
 export class ReportsController {
@@ -256,16 +271,15 @@ export class ReportsController {
         throw new NotFoundException(`Estimate with ID ${id} not found`);
       }
 
-      let result;
-      let contentType;
-      let filename;
+      let result: string | Buffer;
+      let contentType: 'text/csv' | 'application/pdf' | 'application/json';
+      let filename: string;
 
       if (format === 'csv') {
         result = this.reportGeneratorService.generateCSVExport([estimate]);
         contentType = 'text/csv';
         filename = `estimate_${id}_${new Date().toISOString().split('T')[0]}.csv`;
       } else if (format === 'pdf') {
-        // Generate a detailed report and convert to PDF
         const report =
           this.reportGeneratorService.generateDetailedReport(estimate);
         const html = this.convertToHtml(report);
@@ -287,8 +301,10 @@ export class ReportsController {
       if (error instanceof NotFoundException) {
         throw error;
       }
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       throw new InternalServerErrorException(
-        `Failed to export: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Failed to export: ${errorMessage}`,
       );
     }
   }
@@ -315,17 +331,21 @@ export class ReportsController {
     `;
 
     report.sections.forEach((section: DetailedReportSection) => {
+      const safeTitle = escapeHtml(section.title);
       html += `<div class="section">
-        <h2>${section.title}</h2>`;
+        <h2>${safeTitle}</h2>`;
 
-      if (Array.isArray(section.content)) {
+      const content = section.content;
+      if (isStringArray(content)) {
         html += '<ul>';
-        section.content.forEach((item: string) => {
-          html += `<li>${item}</li>`;
+        content.forEach((item) => {
+          html += `<li>${escapeHtml(item)}</li>`;
         });
         html += '</ul>';
+      } else if (typeof content === 'string') {
+        html += `<p>${escapeHtml(content)}</p>`;
       } else {
-        html += `<p>${section.content}</p>`;
+        html += '<p>Invalid content format</p>';
       }
 
       html += '</div>';

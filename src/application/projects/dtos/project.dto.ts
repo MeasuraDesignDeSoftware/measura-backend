@@ -1,5 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ProjectStatus } from '@domain/projects/entities/project.entity';
+import {
+  ProjectStatus,
+  ProjectObjective,
+} from '@domain/projects/entities/project.entity';
 import { Type } from 'class-transformer';
 import { UserDto } from '@application/users/dtos/user.dto';
 
@@ -67,6 +70,42 @@ export class ProjectDto {
     example: '2023-01-01T00:00:00.000Z',
   })
   updatedAt: Date;
+
+  @ApiProperty({
+    description: 'Project objectives linked to organizational objectives',
+    type: 'array',
+    items: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', example: 'Improve system performance' },
+        description: {
+          type: 'string',
+          example: 'Optimize database queries and reduce response time by 30%',
+        },
+        organizationalObjectiveIds: {
+          type: 'array',
+          items: { type: 'string' },
+          example: ['60a1e2c7b9b5a50d944b1e37', '60a1e2c7b9b5a50d944b1e38'],
+        },
+      },
+    },
+    required: false,
+  })
+  objectives?: ProjectObjective[];
+
+  @ApiProperty({
+    description: 'ID of the associated measurement plan, if any',
+    example: '60a1e2c7b9b5a50d944b1e39',
+    required: false,
+  })
+  measurementPlanId?: string;
+
+  @ApiProperty({
+    description: 'ID of the associated FPA estimate, if any',
+    example: '60a1e2c7b9b5a50d944b1e40',
+    required: false,
+  })
+  estimateId?: string;
 
   constructor(partial: Partial<ProjectDto>) {
     Object.assign(this, partial);

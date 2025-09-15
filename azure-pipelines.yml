@@ -1,0 +1,233 @@
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+      - release
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  - group: azure-deployment-variables
+  - name: nodeVersion
+    value: '20.x'
+
+stages:
+  - stage: Build
+    displayName: 'Build Stage'
+    jobs:
+      - job: BuildJob
+        displayName: 'Build Application'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '$(nodeVersion)'
+            displayName: 'Install Node.js $(nodeVersion)'
+
+          - script: |
+              echo "Installing Yarn..."
+              npm install -g yarn
+            displayName: 'Install Yarn'
+
+          - script: |
+              echo "Installing dependencies..."
+              yarn install --frozen-lockfile
+            displayName: 'Install dependencies'
+
+          - script: |
+              echo "Running ESLint..."
+              yarn lint
+            displayName: 'Run linting'
+
+          - script: |
+              echo "Building application..."
+              yarn build
+            displayName: 'Build application'
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathToPublish: 'dist'
+              artifactName: 'application-dist'
+            displayName: 'Publish build artifacts'
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathToPublish: 'package.json'
+              artifactName: 'package-json'
+            displayName: 'Publish package.json'
+
+  - stage: Test
+    displayName: 'Test Stage'
+    dependsOn: Build
+    condition: succeeded()
+    jobs:
+      - job: UnitTests
+        displayName: 'Run Unit Tests'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '$(nodeVersion)'
+            displayName: 'Install Node.js $(nodeVersion)'
+
+          - script: |
+              echo "Installing Yarn..."
+              npm install -g yarn
+            displayName: 'Install Yarn'
+
+          - script: |
+              echo "Installing dependencies..."
+              yarn install --frozen-lockfile
+            displayName: 'Install dependencies'
+
+          - script: |
+              echo "Running unit tests with coverage..."
+              yarn test:cov
+            displayName: 'Run unit tests with coverage'
+
+          - task: PublishTestResults@2
+            inputs:
+              testResultsFormat: 'JUnit'
+              testResultsFiles: '**/junit.xml'
+            displayName: 'Publish unit test results'
+            condition: always()
+
+          - task: PublishCodeCoverageResults@1
+            inputs:
+              codeCoverageTool: 'Cobertura'
+              summaryFileLocation: '**/coverage/cobertura-coverage.xml'
+            displayName: 'Publish code coverage'
+            condition: always()
+
+      - job: IntegrationTests
+        displayName: 'Run Integration Tests'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '$(nodeVersion)'
+            displayName: 'Install Node.js $(nodeVersion)'
+
+          - script: |
+              echo "Installing Yarn..."
+              npm install -g yarn
+            displayName: 'Install Yarn'
+
+          - script: |
+              echo "Installing dependencies..."
+              yarn install --frozen-lockfile
+            displayName: 'Install dependencies'
+
+          - script: |
+              echo "Running integration tests..."
+              yarn test:e2e
+            displayName: 'Run integration tests'
+
+  - stage: Deploy
+    displayName: 'Deploy Stage'
+    dependsOn: Test
+    condition: succeeded()
+    jobs:
+      - deployment: DeployToProduction
+        displayName: 'Deploy to Production'
+        condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
+        environment: Production
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: DownloadBuildArtifacts@0
+                  inputs:
+                    artifactName: 'application-dist'
+                    downloadPath: '$(System.ArtifactsDirectory)'
+                  displayName: 'Download application artifacts'
+
+                - task: DownloadBuildArtifacts@0
+                  inputs:
+                    artifactName: 'package-json'
+                    downloadPath: '$(System.ArtifactsDirectory)'
+                  displayName: 'Download package.json'
+
+                - task: AzureWebApp@1
+                  inputs:
+                    azureSubscription: '$(azureServiceConnection)'
+                    appType: 'webAppLinux'
+                    appName: '$(appServiceName)'
+                    package: '$(System.ArtifactsDirectory)'
+                    runtimeStack: 'NODE|20-lts'
+                    startUpCommand: 'yarn start:prod'
+                  displayName: 'Deploy to Azure App Service'
+
+                - script: |
+                    echo "Deployment completed for branch: $(Build.SourceBranch)"
+                    echo "App Service URL: https://$(appServiceName).azurewebsites.net"
+                  displayName: 'Deployment Summary'
+
+      - deployment: DeployToDevelopment
+        displayName: 'Deploy to Development'
+        condition: eq(variables['Build.SourceBranch'], 'refs/heads/develop')
+        environment: Development
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: DownloadBuildArtifacts@0
+                  inputs:
+                    artifactName: 'application-dist'
+                    downloadPath: '$(System.ArtifactsDirectory)'
+                  displayName: 'Download application artifacts'
+
+                - task: DownloadBuildArtifacts@0
+                  inputs:
+                    artifactName: 'package-json'
+                    downloadPath: '$(System.ArtifactsDirectory)'
+                  displayName: 'Download package.json'
+
+                - task: AzureWebApp@1
+                  inputs:
+                    azureSubscription: '$(azureServiceConnection)'
+                    appType: 'webAppLinux'
+                    appName: '$(appServiceName)'
+                    package: '$(System.ArtifactsDirectory)'
+                    runtimeStack: 'NODE|20-lts'
+                    startUpCommand: 'yarn start:prod'
+                  displayName: 'Deploy to Azure App Service'
+
+                - script: |
+                    echo "Deployment completed for branch: $(Build.SourceBranch)"
+                    echo "App Service URL: https://$(appServiceName).azurewebsites.net"
+                  displayName: 'Deployment Summary'
+
+      - deployment: DeployToStaging
+        displayName: 'Deploy to Staging'
+        condition: and(succeeded(), ne(variables['Build.SourceBranch'], 'refs/heads/main'), ne(variables['Build.SourceBranch'], 'refs/heads/develop'))
+        environment: Staging
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: DownloadBuildArtifacts@0
+                  inputs:
+                    artifactName: 'application-dist'
+                    downloadPath: '$(System.ArtifactsDirectory)'
+                  displayName: 'Download application artifacts'
+
+                - task: DownloadBuildArtifacts@0
+                  inputs:
+                    artifactName: 'package-json'
+                    downloadPath: '$(System.ArtifactsDirectory)'
+                  displayName: 'Download package.json'
+
+                - task: AzureWebApp@1
+                  inputs:
+                    azureSubscription: '$(azureServiceConnection)'
+                    appType: 'webAppLinux'
+                    appName: '$(appServiceName)'
+                    package: '$(System.ArtifactsDirectory)'
+                    runtimeStack: 'NODE|20-lts'
+                    startUpCommand: 'yarn start:prod'
+                  displayName: 'Deploy to Azure App Service'
+
+                - script: |
+                    echo "Deployment completed for branch: $(Build.SourceBranch)"
+                    echo "App Service URL: https://$(appServiceName).azurewebsites.net"
+                  displayName: 'Deployment Summary'

@@ -9,9 +9,53 @@ import {
   IsArray,
   ArrayMaxSize,
   IsMongoId,
+  ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ProjectStatus } from '@domain/projects/entities/project.entity';
+
+export class UpdateProjectObjectiveDto {
+  @ApiProperty({
+    description: 'The unique identifier of the objective (for updates)',
+    required: false,
+  })
+  @IsOptional()
+  @IsMongoId()
+  _id?: string;
+
+  @ApiProperty({
+    description: 'The title of the objective',
+    example: 'Improve system performance',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(3)
+  @MaxLength(200)
+  title?: string;
+
+  @ApiProperty({
+    description: 'The description of the objective',
+    example: 'Reduce page load times by 50% and improve user satisfaction',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(10)
+  @MaxLength(1000)
+  description?: string;
+
+  @ApiProperty({
+    description:
+      'Array of organizational objective IDs this project objective is linked to',
+    type: [String],
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsMongoId({ each: true })
+  organizationalObjectiveIds?: string[];
+}
 
 export class UpdateProjectDto {
   @ApiProperty({
@@ -85,4 +129,33 @@ export class UpdateProjectDto {
   @IsArray()
   @ArrayMaxSize(50)
   teamMembers?: string[];
+
+  @ApiProperty({
+    description: 'Project objectives',
+    type: [UpdateProjectObjectiveDto],
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => UpdateProjectObjectiveDto)
+  objectives?: UpdateProjectObjectiveDto[];
+
+  @ApiProperty({
+    description: 'ID of the associated measurement plan',
+    example: '60a1e2c7b9b5a50d944b1e39',
+    required: false,
+  })
+  @IsOptional()
+  @IsMongoId()
+  measurementPlanId?: string;
+
+  @ApiProperty({
+    description: 'ID of the associated FPA estimate',
+    example: '60a1e2c7b9b5a50d944b1e40',
+    required: false,
+  })
+  @IsOptional()
+  @IsMongoId()
+  estimateId?: string;
 }

@@ -543,6 +543,7 @@ export class AuthService {
       sub: userId,
       email: user.email,
       role: user.role,
+      organizationId: user.organizationId?.toString() || null,
     };
 
     const accessToken = await this.jwtService.signAsync(payload, {

@@ -8,51 +8,6 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { AppModule } from '@app/app.module';
-import * as net from 'net';
-
-// Function to find an available port
-async function findAvailablePort(
-  startPort: number,
-  maxAttempts = 5,
-): Promise<number> {
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const port = startPort + attempt;
-    try {
-      // Create a server to test if the port is available
-      const server = net.createServer();
-
-      const isAvailable = await new Promise<boolean>((resolve) => {
-        // Handle errors (port in use)
-        server.once('error', (err: NodeJS.ErrnoException) => {
-          if (err.code === 'EADDRINUSE') {
-            console.log(`Port ${port} is in use, trying ${port + 1}`);
-            server.close();
-            resolve(false);
-          }
-        });
-
-        // Port is available if we can listen
-        server.once('listening', () => {
-          server.close();
-          resolve(true);
-        });
-
-        server.listen(port);
-      });
-
-      if (isAvailable) {
-        console.log(`Found available port: ${port}`);
-        return port;
-      }
-    } catch (error) {
-      console.log(`Error checking port ${port}:`, error);
-    }
-  }
-
-  throw new Error(
-    `Could not find an available port after ${maxAttempts} attempts`,
-  );
-}
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -86,6 +41,9 @@ async function bootstrap() {
     origin: [
       'http://localhost:3000',
       'http://localhost:3001',
+      'https://*.azurewebsites.net',
+      'https://measura.xyz',
+      'https://www.measura.xyz',
       configService.get<string>('app.email.frontendUrl') ||
         'http://localhost:3000',
     ],
@@ -104,17 +62,9 @@ async function bootstrap() {
     credentials: true,
   });
 
-  const configPort = configService.get<number>('app.port') || 8080;
-  let port: number;
-
-  try {
-    // Try to find an available port
-    port = await findAvailablePort(configPort);
-  } catch (error) {
-    console.error('Failed to find an available port:', error);
-    // Use a random port as fallback
-    port = 0;
-  }
+  // Azure App Service provides PORT via environment variable
+  const port =
+    process.env.PORT || configService.get<number>('app.port') || 8080;
 
   await app.listen(port);
   const serverUrl = await app.getUrl();

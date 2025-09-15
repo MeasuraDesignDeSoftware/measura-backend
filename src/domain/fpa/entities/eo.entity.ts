@@ -33,21 +33,20 @@ export class EO extends BaseFPAComponent {
   primaryIntent: string;
 
   @ApiProperty({
-    description:
-      'Processing logic description - calculations, derived data, or business rules applied',
+    description: 'Output format and data presentation details',
     example:
-      'Calculates running balance, applies interest, formats currency, determines statement period',
+      'PDF format with email delivery, includes QR code for digital verification',
   })
   @Prop({ required: true })
-  processingLogic: string;
+  outputFormat: string;
 
   @ApiProperty({
     description:
-      'Derived data elements produced by this output (calculations, totals, computed fields)',
-    example: 'Account balance, interest earned, total fees, payment due date',
+      'Indicates whether this output produces derived data (calculations, totals, computed fields)',
+    example: true,
   })
   @Prop({ required: true })
-  derivedData: string;
+  derivedData: boolean;
 
   @ApiProperty({
     description:
@@ -59,3 +58,8 @@ export class EO extends BaseFPAComponent {
 }
 
 export const EOSchema = SchemaFactory.createForClass(EO);
+
+// Add indexes for performance
+EOSchema.index({ organizationId: 1 });
+EOSchema.index({ projectId: 1 });
+EOSchema.index({ organizationId: 1, projectId: 1 });
