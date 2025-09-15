@@ -99,10 +99,14 @@ export class OrganizationController {
     }
 
     // Handle invalid organizationId gracefully
-    const organization = await this.organizationService.findOne(user.organizationId.toString());
+    const organization = await this.organizationService.findOne(
+      user.organizationId.toString(),
+    );
     if (!organization) {
       // If organization not found (possibly due to invalid ID), clear the user's organizationId
-      await this.userService.update(req.user._id, { organizationId: undefined });
+      await this.userService.update(req.user._id, {
+        organizationId: undefined,
+      });
       return null;
     }
 
@@ -197,7 +201,7 @@ export class OrganizationController {
       return {
         id: `obj-${index + 1}`,
         title: cleanedTitle,
-        description: cleanedTitle, // Could be enhanced with more sophisticated parsing
+        description: cleanedTitle,
         order: index + 1,
       };
     });
