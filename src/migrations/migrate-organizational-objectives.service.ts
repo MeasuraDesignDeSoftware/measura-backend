@@ -25,8 +25,6 @@ export class MigrateOrganizationalObjectivesService {
     skipped: number;
     errors: string[];
   }> {
-    console.log('🔄 Starting migration of organizational objectives...');
-
     const results = {
       processed: 0,
       migrated: 0,
@@ -50,11 +48,8 @@ export class MigrateOrganizationalObjectivesService {
         ],
       });
 
-      console.log(`📊 Found ${organizations.length} organizations to migrate`);
-
       for (const org of organizations) {
         results.processed++;
-        console.log(`\n🏢 Processing organization: ${org.name} (${org._id})`);
 
         try {
           const structuredObjectives = this.parseStringObjectives(
@@ -62,7 +57,6 @@ export class MigrateOrganizationalObjectivesService {
           );
 
           if (structuredObjectives.length === 0) {
-            console.log(`⚠️  No valid objectives found for ${org.name}`);
             results.skipped++;
             continue;
           }
@@ -77,34 +71,16 @@ export class MigrateOrganizationalObjectivesService {
             },
           );
 
-          console.log(
-            `✅ Migrated ${structuredObjectives.length} objectives for ${org.name}`,
-          );
           results.migrated++;
         } catch (error) {
           const errorMsg = `Failed to migrate ${org.name}: ${error instanceof Error ? error.message : 'Unknown error'}`;
-          console.error(`❌ ${errorMsg}`);
           results.errors.push(errorMsg);
         }
-      }
-
-      console.log('\n📈 Migration Summary:');
-      console.log(`   📊 Total processed: ${results.processed}`);
-      console.log(`   ✅ Successfully migrated: ${results.migrated}`);
-      console.log(`   ⏭️  Skipped: ${results.skipped}`);
-      console.log(`   ❌ Errors: ${results.errors.length}`);
-
-      if (results.errors.length > 0) {
-        console.log('\n🚨 Migration Errors:');
-        results.errors.forEach((error, index) => {
-          console.log(`   ${index + 1}. ${error}`);
-        });
       }
 
       return results;
     } catch (error) {
       const errorMsg = `Migration failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
-      console.error(`💥 ${errorMsg}`);
       results.errors.push(errorMsg);
       return results;
     }
@@ -130,8 +106,8 @@ export class MigrateOrganizationalObjectivesService {
         if (objective) {
           objectives.push(objective);
         }
-      } catch (error) {
-        console.warn(` Failed to parse objective line: "${line}"`, error);
+      } catch {
+        // Skip invalid objective lines
       }
     }
 
@@ -286,10 +262,6 @@ export class MigrateOrganizationalObjectivesService {
     rolledBack: number;
     errors: string[];
   }> {
-    console.log(
-      '🔄 Starting rollback of organizational objectives migration...',
-    );
-
     const results = {
       processed: 0,
       rolledBack: 0,
@@ -302,8 +274,6 @@ export class MigrateOrganizationalObjectivesService {
         objectives: { $exists: true, $ne: null },
         'objectives.0': { $exists: true }, // Has at least one objective
       });
-
-      console.log(`📊 Found ${organizations.length} organizations to rollback`);
 
       for (const org of organizations) {
         results.processed++;
@@ -327,24 +297,16 @@ export class MigrateOrganizationalObjectivesService {
             },
           );
 
-          console.log(`✅ Rolled back objectives for ${org.name}`);
           results.rolledBack++;
         } catch (error) {
           const errorMsg = `Failed to rollback ${org.name}: ${error instanceof Error ? error.message : 'Unknown error'}`;
-          console.error(`❌ ${errorMsg}`);
           results.errors.push(errorMsg);
         }
       }
 
-      console.log('\n📈 Rollback Summary:');
-      console.log(`   📊 Total processed: ${results.processed}`);
-      console.log(`   ✅ Successfully rolled back: ${results.rolledBack}`);
-      console.log(`   ❌ Errors: ${results.errors.length}`);
-
       return results;
     } catch (error) {
       const errorMsg = `Rollback failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
-      console.error(`💥 ${errorMsg}`);
       results.errors.push(errorMsg);
       return results;
     }
@@ -361,8 +323,6 @@ export class MigrateOrganizationalObjectivesService {
       parsedObjectives: OrganizationalObjective[];
     }>;
   }> {
-    console.log('🔍 Previewing organizational objectives migration...');
-
     const organizations = await this.organizationModel
       .find({
         organizationalObjectives: { $exists: true, $ne: null },
