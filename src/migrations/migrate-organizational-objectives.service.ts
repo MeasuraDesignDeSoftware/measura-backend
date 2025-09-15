@@ -131,7 +131,7 @@ export class MigrateOrganizationalObjectivesService {
           objectives.push(objective);
         }
       } catch (error) {
-        console.warn(`⚠️  Failed to parse objective line: "${line}"`, error);
+        console.warn(` Failed to parse objective line: "${line}"`, error);
       }
     }
 
@@ -143,7 +143,9 @@ export class MigrateOrganizationalObjectivesService {
    */
   private parseObjectiveLine(line: string): OrganizationalObjective | null {
     // Remove common prefixes like "1)", "•", "-", "*", etc.
-    const cleanLine = line.replace(/^[\d]+[\.)]\s*|^[•\-\*]\s*|^[\s]*/, '').trim();
+    const cleanLine = line
+      .replace(/^[\d]+[\.)]\s*|^[•\-\*]\s*|^[\s]*/, '')
+      .trim();
 
     if (cleanLine.length < 3) {
       return null; // Too short to be meaningful
@@ -173,7 +175,10 @@ export class MigrateOrganizationalObjectivesService {
         description = cleanLine;
       } else {
         // Fallback: truncate title at 80 characters
-        title = cleanLine.length > 80 ? cleanLine.substring(0, 77) + '...' : cleanLine;
+        title =
+          cleanLine.length > 80
+            ? cleanLine.substring(0, 77) + '...'
+            : cleanLine;
         description = cleanLine;
       }
     }
@@ -191,7 +196,10 @@ export class MigrateOrganizationalObjectivesService {
     return {
       _id: new Types.ObjectId(),
       title: title.length > 200 ? title.substring(0, 197) + '...' : title,
-      description: description.length > 1000 ? description.substring(0, 997) + '...' : description,
+      description:
+        description.length > 1000
+          ? description.substring(0, 997) + '...'
+          : description,
       priority,
       status,
       targetDate,
@@ -207,29 +215,57 @@ export class MigrateOrganizationalObjectivesService {
 
     // High priority keywords
     const highPriorityKeywords = [
-      'critical', 'urgent', 'asap', 'priority', 'key', 'strategic',
-      'revenue', 'profit', 'market share', 'competitive', 'launch',
+      'critical',
+      'urgent',
+      'asap',
+      'priority',
+      'key',
+      'strategic',
+      'revenue',
+      'profit',
+      'market share',
+      'competitive',
+      'launch',
     ];
 
     // Medium priority keywords
     const mediumPriorityKeywords = [
-      'improve', 'enhance', 'develop', 'expand', 'grow', 'increase',
-      'achieve', 'deliver', 'implement', 'optimize',
+      'improve',
+      'enhance',
+      'develop',
+      'expand',
+      'grow',
+      'increase',
+      'achieve',
+      'deliver',
+      'implement',
+      'optimize',
     ];
 
     // Low priority keywords
     const lowPriorityKeywords = [
-      'maintain', 'support', 'monitor', 'review', 'explore',
-      'consider', 'evaluate', 'research', 'investigate',
+      'maintain',
+      'support',
+      'monitor',
+      'review',
+      'explore',
+      'consider',
+      'evaluate',
+      'research',
+      'investigate',
     ];
 
     // Check for critical/high priority indicators
-    if (highPriorityKeywords.some((keyword) => lowercaseObj.includes(keyword))) {
+    if (
+      highPriorityKeywords.some((keyword) => lowercaseObj.includes(keyword))
+    ) {
       return ObjectivePriority.HIGH;
     }
 
     // Check for medium priority indicators
-    if (mediumPriorityKeywords.some((keyword) => lowercaseObj.includes(keyword))) {
+    if (
+      mediumPriorityKeywords.some((keyword) => lowercaseObj.includes(keyword))
+    ) {
       return ObjectivePriority.MEDIUM;
     }
 
@@ -250,7 +286,9 @@ export class MigrateOrganizationalObjectivesService {
     rolledBack: number;
     errors: string[];
   }> {
-    console.log('🔄 Starting rollback of organizational objectives migration...');
+    console.log(
+      '🔄 Starting rollback of organizational objectives migration...',
+    );
 
     const results = {
       processed: 0,
@@ -325,24 +363,28 @@ export class MigrateOrganizationalObjectivesService {
   }> {
     console.log('🔍 Previewing organizational objectives migration...');
 
-    const organizations = await this.organizationModel.find({
-      organizationalObjectives: { $exists: true, $ne: null },
-      $and: [
-        { organizationalObjectives: { $ne: '' } },
-        {
-          $or: [
-            { objectives: { $exists: false } },
-            { objectives: { $size: 0 } },
-            { objectives: null },
-          ],
-        },
-      ],
-    }).limit(5);
+    const organizations = await this.organizationModel
+      .find({
+        organizationalObjectives: { $exists: true, $ne: null },
+        $and: [
+          { organizationalObjectives: { $ne: '' } },
+          {
+            $or: [
+              { objectives: { $exists: false } },
+              { objectives: { $size: 0 } },
+              { objectives: null },
+            ],
+          },
+        ],
+      })
+      .limit(5);
 
     const sampleObjectives = organizations.map((org) => ({
       organizationName: org.name,
       originalObjectives: org.organizationalObjectives!,
-      parsedObjectives: this.parseStringObjectives(org.organizationalObjectives!),
+      parsedObjectives: this.parseStringObjectives(
+        org.organizationalObjectives!,
+      ),
     }));
 
     const totalCount = await this.organizationModel.countDocuments({
