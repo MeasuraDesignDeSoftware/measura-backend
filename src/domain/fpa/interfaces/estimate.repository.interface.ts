@@ -9,6 +9,7 @@ export interface IEstimateRepository {
   findByProject(projectId: string): Promise<Estimate[]>;
   findByStatus(status: EstimateStatus): Promise<Estimate[]>;
   findByCreatedBy(userId: string): Promise<Estimate[]>;
+  findByOrganization(organizationId: string): Promise<Estimate[]>;
   findAll(): Promise<Estimate[]>;
   update(id: string, estimate: Partial<Estimate>): Promise<Estimate | null>;
   delete(id: string): Promise<boolean>;
