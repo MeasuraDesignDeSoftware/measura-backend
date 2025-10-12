@@ -87,17 +87,23 @@ export class EstimateService {
       }
     }
 
-    return createdEstimate;
+    // Format decimal values before returning
+    return this.formatEstimateDecimals(createdEstimate);
   }
 
   async findAll(
     organizationId: string,
     projectId?: string,
   ): Promise<Estimate[]> {
+    let estimates: Estimate[];
     if (projectId) {
-      return await this.estimateRepository.findByProject(projectId);
+      estimates = await this.estimateRepository.findByProject(projectId);
+    } else {
+      estimates = await this.estimateRepository.findByOrganization(organizationId);
     }
-    return await this.estimateRepository.findByOrganization(organizationId);
+
+    // Format decimal values for all estimates
+    return estimates.map((estimate) => this.formatEstimateDecimals(estimate));
   }
 
   async findOne(id: string, organizationId: string): Promise<Estimate> {
@@ -111,7 +117,28 @@ export class EstimateService {
       throw new ForbiddenException('Access denied to this estimate');
     }
 
-    return estimate;
+    // Format decimal values to 2 decimal places
+    return this.formatEstimateDecimals(estimate);
+  }
+
+  /**
+   * Format decimal values in estimate to 2 decimal places
+   */
+  private formatEstimateDecimals(estimate: Estimate): Estimate {
+    return {
+      ...estimate,
+      valueAdjustmentFactor: this.roundToTwo(estimate.valueAdjustmentFactor),
+      adjustedFunctionPoints: this.roundToTwo(estimate.adjustedFunctionPoints),
+      estimatedEffortHours: this.roundToTwo(estimate.estimatedEffortHours),
+      hourlyRateBRL: this.roundToTwo(estimate.hourlyRateBRL),
+    };
+  }
+
+  /**
+   * Round a number to 2 decimal places
+   */
+  private roundToTwo(value: number): number {
+    return Math.round(value * 100) / 100;
   }
 
   async update(
@@ -148,7 +175,9 @@ export class EstimateService {
     if (!updatedEstimate) {
       throw new NotFoundException(`Failed to update estimate with ID ${id}`);
     }
-    return updatedEstimate;
+
+    // Format decimal values before returning
+    return this.formatEstimateDecimals(updatedEstimate);
   }
 
   async remove(id: string, organizationId: string): Promise<boolean> {
@@ -188,6 +217,8 @@ export class EstimateService {
         `Failed to create new version for estimate ${id}`,
       );
     }
-    return newVersion;
+
+    // Format decimal values before returning
+    return this.formatEstimateDecimals(newVersion);
   }
 }

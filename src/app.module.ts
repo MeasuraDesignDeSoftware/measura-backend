@@ -13,12 +13,14 @@ import { FPAModule } from '@app/modules/fpa/fpa.module';
 import { UsersModule } from '@app/modules/users/users.module';
 import { OrganizationsModule } from '@app/modules/organizations/organizations.module';
 import { MeasurementPlansModule } from '@modules/measurement-plans/measurement-plans.module';
+import { OrganizationInvitationsModule } from '@app/modules/organization-invitations/organization-invitations.module';
 
 // Controller Modules
 import { EstimatesModule } from '@controllers/fpa/estimates.module';
 import { EstimatesComponentsModule } from '@controllers/fpa/estimates-components.module';
 import { OrganizationsControllerModule } from '@controllers/organizations/organizations.module';
 import { ProjectsControllerModule } from '@controllers/projects/projects.module';
+import { OrganizationInvitationsControllerModule } from '@controllers/organization-invitations/organization-invitations.module';
 
 // Config Modules
 import appConfig from '@app/config/app.config';
@@ -51,12 +53,14 @@ import { MigrateOrganizationalObjectivesService } from './migrations/migrate-org
     UsersModule,
     OrganizationsModule,
     MeasurementPlansModule,
+    OrganizationInvitationsModule,
 
     // Controller Modules
     EstimatesModule,
     EstimatesComponentsModule,
     OrganizationsControllerModule,
     ProjectsControllerModule,
+    OrganizationInvitationsControllerModule,
   ],
   controllers: [AppController, FilesController],
   providers: [MigrateOrganizationalObjectivesService],
