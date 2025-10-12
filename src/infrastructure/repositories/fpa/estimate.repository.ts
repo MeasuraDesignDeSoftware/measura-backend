@@ -61,6 +61,12 @@ export class EstimateRepository implements IEstimateRepository {
       .exec();
   }
 
+  async findByOrganization(organizationId: string): Promise<Estimate[]> {
+    return this.estimateModel
+      .find({ organizationId: new Types.ObjectId(organizationId) })
+      .exec();
+  }
+
   async findAll(): Promise<Estimate[]> {
     return this.estimateModel.find().exec();
   }

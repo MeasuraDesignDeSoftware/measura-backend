@@ -97,7 +97,7 @@ export class EstimateService {
     if (projectId) {
       return await this.estimateRepository.findByProject(projectId);
     }
-    return await this.estimateRepository.findAll();
+    return await this.estimateRepository.findByOrganization(organizationId);
   }
 
   async findOne(id: string, organizationId: string): Promise<Estimate> {
