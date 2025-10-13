@@ -333,88 +333,99 @@ export class EstimatesController {
       const componentCounts = {
         ali: {
           count: componentBreakdown.ali.count,
-          points: componentBreakdown.ali.points,
-          percentage:
+          points: this.round(componentBreakdown.ali.points),
+          percentage: this.round(
             componentBreakdown.total.points > 0
               ? (componentBreakdown.ali.points /
                   componentBreakdown.total.points) *
                 100
               : 0,
+          ),
         },
         aie: {
           count: componentBreakdown.aie.count,
-          points: componentBreakdown.aie.points,
-          percentage:
+          points: this.round(componentBreakdown.aie.points),
+          percentage: this.round(
             componentBreakdown.total.points > 0
               ? (componentBreakdown.aie.points /
                   componentBreakdown.total.points) *
                 100
               : 0,
+          ),
         },
         ei: {
           count: componentBreakdown.ei.count,
-          points: componentBreakdown.ei.points,
-          percentage:
+          points: this.round(componentBreakdown.ei.points),
+          percentage: this.round(
             componentBreakdown.total.points > 0
               ? (componentBreakdown.ei.points /
                   componentBreakdown.total.points) *
                 100
               : 0,
+          ),
         },
         eo: {
           count: componentBreakdown.eo.count,
-          points: componentBreakdown.eo.points,
-          percentage:
+          points: this.round(componentBreakdown.eo.points),
+          percentage: this.round(
             componentBreakdown.total.points > 0
               ? (componentBreakdown.eo.points /
                   componentBreakdown.total.points) *
                 100
               : 0,
+          ),
         },
         eq: {
           count: componentBreakdown.eq.count,
-          points: componentBreakdown.eq.points,
-          percentage:
+          points: this.round(componentBreakdown.eq.points),
+          percentage: this.round(
             componentBreakdown.total.points > 0
               ? (componentBreakdown.eq.points /
                   componentBreakdown.total.points) *
                 100
               : 0,
+          ),
         },
-        total: componentBreakdown.total,
+        total: {
+          count: componentBreakdown.total.count,
+          points: this.round(componentBreakdown.total.points),
+        },
       };
 
       // Calculate percentages for complexity breakdown
       const complexityDistribution = {
         low: {
           count: complexityBreakdown.low.count,
-          points: complexityBreakdown.low.points,
-          percentage:
+          points: this.round(complexityBreakdown.low.points),
+          percentage: this.round(
             componentBreakdown.total.points > 0
               ? (complexityBreakdown.low.points /
                   componentBreakdown.total.points) *
                 100
               : 0,
+          ),
         },
         medium: {
           count: complexityBreakdown.average.count,
-          points: complexityBreakdown.average.points,
-          percentage:
+          points: this.round(complexityBreakdown.average.points),
+          percentage: this.round(
             componentBreakdown.total.points > 0
               ? (complexityBreakdown.average.points /
                   componentBreakdown.total.points) *
                 100
               : 0,
+          ),
         },
         high: {
           count: complexityBreakdown.high.count,
-          points: complexityBreakdown.high.points,
-          percentage:
+          points: this.round(complexityBreakdown.high.points),
+          percentage: this.round(
             componentBreakdown.total.points > 0
               ? (complexityBreakdown.high.points /
                   componentBreakdown.total.points) *
                 100
               : 0,
+          ),
         },
       };
 
@@ -429,43 +440,47 @@ export class EstimatesController {
       // Phase breakdown estimation (industry standard percentages)
       const phaseBreakdown = {
         analysis: {
-          hours: metrics.effortHours * 0.15,
+          hours: this.round(metrics.effortHours * 0.15),
           percentage: 15,
         },
         design: {
-          hours: metrics.effortHours * 0.2,
+          hours: this.round(metrics.effortHours * 0.2),
           percentage: 20,
         },
         development: {
-          hours: metrics.effortHours * 0.4,
+          hours: this.round(metrics.effortHours * 0.4),
           percentage: 40,
         },
         testing: {
-          hours: metrics.effortHours * 0.2,
+          hours: this.round(metrics.effortHours * 0.2),
           percentage: 20,
         },
         deployment: {
-          hours: metrics.effortHours * 0.05,
+          hours: this.round(metrics.effortHours * 0.05),
           percentage: 5,
         },
       };
 
       // Cost breakdown
       const costBreakdown = {
-        development: metrics.totalCost * 0.7,
-        management: metrics.totalCost * 0.15,
-        infrastructure: metrics.totalCost * 0.1,
-        contingency: metrics.totalCost * 0.05,
+        development: this.round(metrics.totalCost * 0.7),
+        management: this.round(metrics.totalCost * 0.15),
+        infrastructure: this.round(metrics.totalCost * 0.1),
+        contingency: this.round(metrics.totalCost * 0.05),
       };
 
       // Productivity metrics
       const productivityMetrics = {
-        hoursPerFunctionPoint: metrics.productivityFactor,
-        functionPointsPerDay:
+        hoursPerFunctionPoint: this.round(metrics.productivityFactor),
+        functionPointsPerDay: this.round(
           metrics.averageDailyWorkingHours / metrics.productivityFactor,
-        functionPointsPerPersonMonth:
+        ),
+        functionPointsPerPersonMonth: this.round(
           (metrics.averageDailyWorkingHours * 21) / metrics.productivityFactor,
-        teamEfficiency: Math.min(1.0, 1.0 / Math.sqrt(metrics.teamSize / 5)), // Brooks' Law approximation
+        ),
+        teamEfficiency: this.round(
+          Math.min(1.0, 1.0 / Math.sqrt(metrics.teamSize / 5)),
+        ), // Brooks' Law approximation
         industryComparison: {
           productivityRating:
             metrics.productivityFactor <= 12
@@ -474,7 +489,9 @@ export class EstimatesController {
                 ? 'AVERAGE'
                 : 'LOW',
           benchmarkHoursPerFP: 15, // Industry average
-          performanceIndex: (15 / metrics.productivityFactor) * 100,
+          performanceIndex: this.round(
+            (15 / metrics.productivityFactor) * 100,
+          ),
         },
       };
 
@@ -516,10 +533,10 @@ export class EstimatesController {
 
         // Function points summary with enhanced details
         functionPointsSummary: {
-          pfna: metrics.pfna,
-          pfa: metrics.pfa,
-          adjustmentFactor: metrics.fa,
-          influenceDegree: metrics.ni,
+          pfna: this.round(metrics.pfna),
+          pfa: this.round(metrics.pfa),
+          adjustmentFactor: this.round(metrics.fa),
+          influenceDegree: this.round(metrics.ni),
           componentCounts,
           complexityDistribution,
           eqSpecialCalculations,
@@ -527,20 +544,20 @@ export class EstimatesController {
 
         // Effort estimation details
         effortEstimation: {
-          totalHours: metrics.effortHours,
-          durationDays: metrics.durationDays,
-          durationWeeks: metrics.durationWeeks,
-          durationMonths: metrics.durationMonths,
-          hoursPerPerson: metrics.hoursPerPerson,
+          totalHours: this.round(metrics.effortHours),
+          durationDays: this.round(metrics.durationDays),
+          durationWeeks: this.round(metrics.durationWeeks),
+          durationMonths: this.round(metrics.durationMonths),
+          hoursPerPerson: this.round(metrics.hoursPerPerson),
           phaseBreakdown,
         },
 
         // Cost estimation details
         costEstimation: {
-          totalCost: metrics.totalCost,
-          costPerFunctionPoint: metrics.costPerFunctionPoint,
-          costPerPerson: metrics.costPerPerson,
-          hourlyRate: metrics.hourlyRateBRL,
+          totalCost: this.round(metrics.totalCost),
+          costPerFunctionPoint: this.round(metrics.costPerFunctionPoint),
+          costPerPerson: this.round(metrics.costPerPerson),
+          hourlyRate: this.round(metrics.hourlyRateBRL),
           costBreakdown,
         },
 
@@ -791,5 +808,12 @@ export class EstimatesController {
       errors,
       qualityScore: Math.max(0, qualityScore),
     };
+  }
+
+  /**
+   * Round a number to 2 decimal places
+   */
+  private round(value: number): number {
+    return Math.round(value * 100) / 100;
   }
 }

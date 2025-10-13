@@ -182,10 +182,16 @@ export class CalculationsController {
 
       return {
         id: updatedEstimate._id,
-        unadjustedFunctionPoints: updatedEstimate.unadjustedFunctionPoints,
-        valueAdjustmentFactor: updatedEstimate.valueAdjustmentFactor,
-        adjustedFunctionPoints: updatedEstimate.adjustedFunctionPoints,
-        estimatedEffortHours: updatedEstimate.estimatedEffortHours,
+        unadjustedFunctionPoints: this.round(
+          updatedEstimate.unadjustedFunctionPoints,
+        ),
+        valueAdjustmentFactor: this.round(
+          updatedEstimate.valueAdjustmentFactor,
+        ),
+        adjustedFunctionPoints: this.round(
+          updatedEstimate.adjustedFunctionPoints,
+        ),
+        estimatedEffortHours: this.round(updatedEstimate.estimatedEffortHours),
         components: {
           internalLogicalFiles: alis.length,
           externalInterfaceFiles: aies.length,
@@ -240,11 +246,11 @@ export class CalculationsController {
       const estimatedEffortMonths = estimatedEffortDays / 21; // assuming 21 workdays per month
 
       return {
-        adjustedFunctionPoints: estimate.adjustedFunctionPoints,
-        productivityFactor: usedProductivityFactor,
-        estimatedEffortHours,
-        estimatedEffortDays,
-        estimatedEffortMonths,
+        adjustedFunctionPoints: this.round(estimate.adjustedFunctionPoints),
+        productivityFactor: this.round(usedProductivityFactor),
+        estimatedEffortHours: this.round(estimatedEffortHours),
+        estimatedEffortDays: this.round(estimatedEffortDays),
+        estimatedEffortMonths: this.round(estimatedEffortMonths),
       };
     } catch (error) {
       if (error instanceof NotFoundException) {
@@ -289,12 +295,14 @@ export class CalculationsController {
         });
 
       return {
-        recommendedTeamSize: teamSizeEstimation.recommendedTeamSize,
-        recommendedDurationMonths: teamSizeEstimation.recommendedDurationMonths,
-        minTeamSize: teamSizeEstimation.minTeamSize,
-        maxTeamSize: teamSizeEstimation.maxTeamSize,
-        minDurationMonths: teamSizeEstimation.minDurationMonths,
-        maxDurationMonths: teamSizeEstimation.maxDurationMonths,
+        recommendedTeamSize: this.round(teamSizeEstimation.recommendedTeamSize),
+        recommendedDurationMonths: this.round(
+          teamSizeEstimation.recommendedDurationMonths,
+        ),
+        minTeamSize: this.round(teamSizeEstimation.minTeamSize),
+        maxTeamSize: this.round(teamSizeEstimation.maxTeamSize),
+        minDurationMonths: this.round(teamSizeEstimation.minDurationMonths),
+        maxDurationMonths: this.round(teamSizeEstimation.maxDurationMonths),
       };
     } catch (error) {
       if (error instanceof NotFoundException) {
@@ -304,5 +312,12 @@ export class CalculationsController {
         `Failed to calculate team size: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
     }
+  }
+
+  /**
+   * Round a number to 2 decimal places
+   */
+  private round(value: number): number {
+    return Math.round(value * 100) / 100;
   }
 }

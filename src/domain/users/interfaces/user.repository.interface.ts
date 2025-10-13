@@ -33,4 +33,5 @@ export interface IUserRepository {
     tokenExpires: Date,
   ): Promise<void>;
   markEmailAsVerified(userId: string): Promise<void>;
+  findByOrganizationId(organizationId: string): Promise<User[]>;
 }

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import {
   Organization,
@@ -14,7 +14,7 @@ import { UsersModule } from '@app/modules/users/users.module';
     MongooseModule.forFeature([
       { name: Organization.name, schema: OrganizationSchema },
     ]),
-    UsersModule, // Import UsersModule to access UserService
+    forwardRef(() => UsersModule), // Import UsersModule to access UserService
   ],
   providers: [
     {
@@ -26,8 +26,6 @@ import { UsersModule } from '@app/modules/users/users.module';
   exports: [
     ORGANIZATION_REPOSITORY,
     OrganizationService,
-    UsersModule,
-    MongooseModule, // Export MongooseModule to make Organization model available
   ],
 })
 export class OrganizationsModule {}
