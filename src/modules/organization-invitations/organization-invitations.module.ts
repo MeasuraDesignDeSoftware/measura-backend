@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import {
   OrganizationInvitation,
@@ -18,7 +18,7 @@ import { OrganizationsModule } from '@app/modules/organizations/organizations.mo
         schema: OrganizationInvitationSchema,
       },
     ]),
-    UsersModule,
+    forwardRef(() => UsersModule),
     OrganizationsModule,
   ],
   providers: [

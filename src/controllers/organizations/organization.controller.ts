@@ -8,6 +8,7 @@ import {
   Put,
   UseGuards,
   Request,
+  NotFoundException,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -207,5 +208,69 @@ export class OrganizationController {
     });
 
     return { data: objectives };
+  }
+
+  @Get(':id/members')
+  @ApiOperation({ summary: 'Get organization members' })
+  @ApiParam({
+    name: 'id',
+    description: 'The id of the organization',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Return organization members.',
+  })
+  @ApiResponse({ status: 404, description: 'Organization not found.' })
+  async getMembers(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+    const user = await this.userService.findOne(req.user._id);
+
+    // Verify user is a member of this organization
+    if (!user.organizationId || user.organizationId.toString() !== id) {
+      throw new NotFoundException('You are not a member of this organization');
+    }
+
+    return this.organizationService.getMembers(id);
+  }
+
+  @Post('leave')
+  @ApiOperation({ summary: 'Leave your current organization' })
+  @ApiResponse({
+    status: 200,
+    description: 'Successfully left the organization.',
+  })
+  @ApiResponse({ status: 400, description: 'Not part of any organization.' })
+  async leaveOrganization(@Request() req: AuthenticatedRequest) {
+    await this.userService.leaveOrganization(req.user._id);
+    return { message: 'Successfully left the organization' };
+  }
+
+  @Delete(':id/members/:userId')
+  @ApiOperation({ summary: 'Remove a member from an organization' })
+  @ApiParam({
+    name: 'id',
+    description: 'The id of the organization',
+  })
+  @ApiParam({
+    name: 'userId',
+    description: 'The id of the user to remove',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Member successfully removed.',
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Organization or user not found.' })
+  async removeMember(
+    @Param('id') organizationId: string,
+    @Param('userId') userId: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    await this.organizationService.removeMember(
+      organizationId,
+      userId,
+      req.user._id,
+      req.user.role,
+    );
+    return { message: 'Member successfully removed from the organization' };
   }
 }

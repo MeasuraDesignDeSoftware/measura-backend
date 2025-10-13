@@ -17,12 +17,18 @@ import {
 } from '@domain/users/entities/user.entity';
 import { CreateUserDto } from '@application/users/dtos/create-user.dto';
 import { UpdateUserDto } from '@application/users/dtos/update-user.dto';
+import {
+  ORGANIZATION_INVITATION_REPOSITORY,
+  IOrganizationInvitationRepository,
+} from '@domain/organization-invitations/interfaces/organization-invitation.repository.interface';
 
 @Injectable()
 export class UserService {
   constructor(
     @Inject(USER_REPOSITORY)
     private readonly userRepository: IUserRepository,
+    @Inject(ORGANIZATION_INVITATION_REPOSITORY)
+    private readonly invitationRepository: IOrganizationInvitationRepository,
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
@@ -121,5 +127,39 @@ export class UserService {
     }
 
     return true;
+  }
+
+  /**
+   * Allow a user to leave their organization
+   */
+  async leaveOrganization(userId: string): Promise<void> {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundException(`User with ID "${userId}" not found`);
+    }
+
+    if (!user.organizationId) {
+      throw new BadRequestException('You are not part of any organization');
+    }
+
+    // Remove the user's organizationId using $unset
+    const updatedUser = await this.userRepository.update(userId, {
+      $unset: { organizationId: 1 },
+    } as any);
+
+    if (!updatedUser) {
+      throw new BadRequestException('Failed to leave organization');
+    }
+
+    // Cancel all pending invitations sent by this user
+    const userIdentifier = user.email || user.username;
+    const pendingInvitations =
+      await this.invitationRepository.findPendingByUserId(userIdentifier);
+
+    for (const invitation of pendingInvitations) {
+      await this.invitationRepository.update(invitation._id.toString(), {
+        status: 'CANCELLED' as any,
+      });
+    }
   }
 }

@@ -27,6 +27,7 @@ import appConfig from '@app/config/app.config';
 
 import { winstonConfig } from '@app/config/winston.config';
 import { MigrateOrganizationalObjectivesService } from './migrations/migrate-organizational-objectives.service';
+import { Organization, OrganizationSchema } from '@domain/organizations/entities/organization.entity';
 
 @Module({
   imports: [
@@ -43,6 +44,10 @@ import { MigrateOrganizationalObjectivesService } from './migrations/migrate-org
       }),
       inject: [ConfigService],
     }),
+
+    MongooseModule.forFeature([
+      { name: Organization.name, schema: OrganizationSchema },
+    ]),
 
     WinstonModule.forRoot(winstonConfig),
 

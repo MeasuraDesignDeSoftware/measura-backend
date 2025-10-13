@@ -384,4 +384,20 @@ export class UserRepository implements IUserRepository {
       this.handleError('clearResetToken', error);
     }
   }
+
+  async findByOrganizationId(organizationId: string): Promise<User[]> {
+    try {
+      if (!Types.ObjectId.isValid(organizationId)) {
+        this.logger.warn(
+          `Invalid ObjectId format in findByOrganizationId: ${organizationId}`,
+        );
+        return [];
+      }
+
+      const objectId = new Types.ObjectId(organizationId);
+      return this.userModel.find({ organizationId: objectId }).exec();
+    } catch (error) {
+      return this.handleError('findByOrganizationId', error, []);
+    }
+  }
 }

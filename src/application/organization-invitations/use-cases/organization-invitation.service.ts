@@ -67,12 +67,8 @@ export class OrganizationInvitationService {
       );
     }
 
-    // Validate target user doesn't already have an organization
-    if (targetUser.organizationId) {
-      throw new BadRequestException(
-        'User already belongs to an organization',
-      );
-    }
+    // Note: We no longer block users with an organization from receiving invitations
+    // They can receive invitations but won't be able to accept them while in another org
 
     // Check if there's already a pending invitation for this user to this org
     const existingInvitation =
