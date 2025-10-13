@@ -99,7 +99,8 @@ export class EstimateService {
     if (projectId) {
       estimates = await this.estimateRepository.findByProject(projectId);
     } else {
-      estimates = await this.estimateRepository.findByOrganization(organizationId);
+      estimates =
+        await this.estimateRepository.findByOrganization(organizationId);
     }
 
     // Format decimal values for all estimates
@@ -112,18 +113,13 @@ export class EstimateService {
       throw new NotFoundException(`Estimate with ID ${id} not found`);
     }
 
-    // Ensure estimate belongs to the requested organization
     if (estimate.organizationId.toString() !== organizationId) {
       throw new ForbiddenException('Access denied to this estimate');
     }
 
-    // Format decimal values to 2 decimal places
     return this.formatEstimateDecimals(estimate);
   }
 
-  /**
-   * Format decimal values in estimate to 2 decimal places
-   */
   private formatEstimateDecimals(estimate: Estimate): Estimate {
     return {
       ...estimate,
@@ -134,9 +130,6 @@ export class EstimateService {
     };
   }
 
-  /**
-   * Round a number to 2 decimal places
-   */
   private roundToTwo(value: number): number {
     return Math.round(value * 100) / 100;
   }
@@ -176,7 +169,6 @@ export class EstimateService {
       throw new NotFoundException(`Failed to update estimate with ID ${id}`);
     }
 
-    // Format decimal values before returning
     return this.formatEstimateDecimals(updatedEstimate);
   }
 
@@ -193,7 +185,6 @@ export class EstimateService {
           },
         );
       } catch (error) {
-        // If project unlinking fails, log error but continue with deletion
         console.warn('Failed to unlink estimate from project:', error);
       }
     }
@@ -218,7 +209,6 @@ export class EstimateService {
       );
     }
 
-    // Format decimal values before returning
     return this.formatEstimateDecimals(newVersion);
   }
 }

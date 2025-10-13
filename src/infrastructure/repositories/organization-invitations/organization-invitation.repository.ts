@@ -33,7 +33,6 @@ export class OrganizationInvitationRepository
   }
 
   async findPendingByUserId(userId: string): Promise<OrganizationInvitation[]> {
-    // First, get the user to find their email and username
     const User = this.invitationModel.db.model('User');
     const user = await User.findById(userId).exec();
 
@@ -41,7 +40,6 @@ export class OrganizationInvitationRepository
       return [];
     }
 
-    // Find invitations that match either email or username
     return this.invitationModel
       .find({
         userIdentifier: { $in: [user.email, user.username] },

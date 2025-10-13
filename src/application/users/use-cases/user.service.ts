@@ -129,9 +129,6 @@ export class UserService {
     return true;
   }
 
-  /**
-   * Allow a user to leave their organization
-   */
   async leaveOrganization(userId: string): Promise<void> {
     const user = await this.userRepository.findById(userId);
     if (!user) {
@@ -142,7 +139,6 @@ export class UserService {
       throw new BadRequestException('You are not part of any organization');
     }
 
-    // Remove the user's organizationId using $unset
     const updatedUser = await this.userRepository.update(userId, {
       $unset: { organizationId: 1 },
     } as any);
@@ -151,7 +147,6 @@ export class UserService {
       throw new BadRequestException('Failed to leave organization');
     }
 
-    // Cancel all pending invitations sent by this user
     const userIdentifier = user.email || user.username;
     const pendingInvitations =
       await this.invitationRepository.findPendingByUserId(userIdentifier);

@@ -37,7 +37,6 @@ export class OrganizationService {
       throw new ConflictException('Organization name already exists');
     }
 
-    // Convert objectives DTOs to proper OrganizationalObjective entities
     const objectives: OrganizationalObjective[] = createOrganizationDto.objectives?.map(obj => ({
       _id: new Types.ObjectId(),
       title: obj.title,
@@ -98,7 +97,6 @@ export class OrganizationService {
       }
     }
 
-    // Handle objectives update if provided
     let updateData: any = { ...updateOrganizationDto };
     if (updateOrganizationDto.objectives) {
       const objectives: OrganizationalObjective[] = updateOrganizationDto.objectives.map(obj => ({
@@ -141,17 +139,11 @@ export class OrganizationService {
     return true;
   }
 
-  /**
-   * Get all organizational objectives for an organization
-   */
   async getObjectives(organizationId: string): Promise<OrganizationalObjective[]> {
     const organization = await this.findOneOrThrow(organizationId);
     return organization.objectives || [];
   }
 
-  /**
-   * Get a specific organizational objective by ID
-   */
   async getObjective(organizationId: string, objectiveId: string): Promise<OrganizationalObjective> {
     const organization = await this.findOneOrThrow(organizationId);
     const objective = organization.objectives?.find(obj => obj._id.toString() === objectiveId);
@@ -163,9 +155,6 @@ export class OrganizationService {
     return objective;
   }
 
-  /**
-   * Add a new objective to an organization
-   */
   async addObjective(
     organizationId: string,
     objectiveData: Omit<OrganizationalObjective, '_id'>
@@ -190,9 +179,6 @@ export class OrganizationService {
     return updatedOrganization;
   }
 
-  /**
-   * Update a specific objective in an organization
-   */
   async updateObjective(
     organizationId: string,
     objectiveId: string,
@@ -210,7 +196,7 @@ export class OrganizationService {
     updatedObjectives[objectiveIndex] = {
       ...updatedObjectives[objectiveIndex],
       ...updateData,
-      _id: new Types.ObjectId(objectiveId), // Preserve the original ID
+      _id: new Types.ObjectId(objectiveId),
     };
 
     const updatedOrganization = await this.organizationRepository.update(organizationId, {
@@ -224,9 +210,6 @@ export class OrganizationService {
     return updatedOrganization;
   }
 
-  /**
-   * Remove an objective from an organization
-   */
   async removeObjective(organizationId: string, objectiveId: string): Promise<Organization> {
     const organization = await this.findOneOrThrow(organizationId);
 
@@ -243,9 +226,6 @@ export class OrganizationService {
     return updatedOrganization;
   }
 
-  /**
-   * Check if a user is an organization manager (owner OR PROJECT_MANAGER role)
-   */
   async isOrganizationManager(
     userId: string,
     organizationId: string,
@@ -253,23 +233,18 @@ export class OrganizationService {
   ): Promise<boolean> {
     const organization = await this.findOneOrThrow(organizationId);
 
-    // User is manager if they are the owner OR have PROJECT_MANAGER role
     const isOwner = organization.createdBy.toString() === userId;
     const isProjectManager = userRole === UserRole.PROJECT_MANAGER;
 
     return isOwner || isProjectManager;
   }
 
-  /**
-   * Get all members of an organization
-   */
   async getMembers(organizationId: string) {
     const organization = await this.findOneOrThrow(organizationId);
     const members = await this.userRepository.findByOrganizationId(
       organizationId,
     );
 
-    // Map members and mark the owner
     return members.map((member) => ({
       _id: member._id,
       email: member.email,
@@ -284,9 +259,6 @@ export class OrganizationService {
     }));
   }
 
-  /**
-   * Remove a member from an organization
-   */
   async removeMember(
     organizationId: string,
     memberIdToRemove: string,
@@ -295,7 +267,6 @@ export class OrganizationService {
   ): Promise<void> {
     const organization = await this.findOneOrThrow(organizationId);
 
-    // Check if requesting user is a manager
     const isManager = await this.isOrganizationManager(
       requestingUserId,
       organizationId,
@@ -308,27 +279,23 @@ export class OrganizationService {
       );
     }
 
-    // Cannot remove yourself (must use leave endpoint)
     if (requestingUserId === memberIdToRemove) {
       throw new BadRequestException(
         'You cannot remove yourself from the organization. Use the leave endpoint instead.',
       );
     }
 
-    // Find the member to remove
     const memberToRemove = await this.userRepository.findById(memberIdToRemove);
     if (!memberToRemove) {
       throw new NotFoundException(`User with ID "${memberIdToRemove}" not found`);
     }
 
-    // Verify member belongs to this organization
     if (memberToRemove.organizationId?.toString() !== organizationId) {
       throw new BadRequestException(
         'User is not a member of this organization',
       );
     }
 
-    // Remove the member's organizationId using $unset
     const updatedUser = await this.userRepository.update(memberIdToRemove, {
       $unset: { organizationId: 1 },
     } as any);
