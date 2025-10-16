@@ -116,7 +116,7 @@ export abstract class ValidationHandler {
    * Helper method to check if context has a specific metadata key
    */
   protected hasMetadata(context: ValidationContext, key: string): boolean {
-    return context.metadata && key in context.metadata;
+    return !!(context.metadata && key in context.metadata);
   }
 
   /**

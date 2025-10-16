@@ -174,6 +174,9 @@ export class EstimateBuilder implements IEstimateBuilder {
       this.errors.push(`Invalid ALI ID: ${aliId}`);
       return this;
     }
+    if (!this.estimate.internalLogicalFiles) {
+      this.estimate.internalLogicalFiles = [];
+    }
     this.estimate.internalLogicalFiles.push(new Types.ObjectId(aliId));
     return this;
   }
@@ -182,6 +185,9 @@ export class EstimateBuilder implements IEstimateBuilder {
     if (!Types.ObjectId.isValid(aieId)) {
       this.errors.push(`Invalid AIE ID: ${aieId}`);
       return this;
+    }
+    if (!this.estimate.externalInterfaceFiles) {
+      this.estimate.externalInterfaceFiles = [];
     }
     this.estimate.externalInterfaceFiles.push(new Types.ObjectId(aieId));
     return this;
@@ -192,6 +198,9 @@ export class EstimateBuilder implements IEstimateBuilder {
       this.errors.push(`Invalid EI ID: ${eiId}`);
       return this;
     }
+    if (!this.estimate.externalInputs) {
+      this.estimate.externalInputs = [];
+    }
     this.estimate.externalInputs.push(new Types.ObjectId(eiId));
     return this;
   }
@@ -201,6 +210,9 @@ export class EstimateBuilder implements IEstimateBuilder {
       this.errors.push(`Invalid EO ID: ${eoId}`);
       return this;
     }
+    if (!this.estimate.externalOutputs) {
+      this.estimate.externalOutputs = [];
+    }
     this.estimate.externalOutputs.push(new Types.ObjectId(eoId));
     return this;
   }
@@ -209,6 +221,9 @@ export class EstimateBuilder implements IEstimateBuilder {
     if (!Types.ObjectId.isValid(eqId)) {
       this.errors.push(`Invalid EQ ID: ${eqId}`);
       return this;
+    }
+    if (!this.estimate.externalQueries) {
+      this.estimate.externalQueries = [];
     }
     this.estimate.externalQueries.push(new Types.ObjectId(eqId));
     return this;
@@ -295,6 +310,9 @@ export class EstimateBuilder implements IEstimateBuilder {
       return this;
     }
 
+    if (!this.estimate.documentReferences) {
+      this.estimate.documentReferences = [];
+    }
     this.estimate.documentReferences.push(document);
     return this;
   }
@@ -343,14 +361,14 @@ export class EstimateBuilder implements IEstimateBuilder {
       this.estimate.adjustedFunctionPoints =
         FunctionPointCalculator.calculateAdjustedFunctionPoints(
           this.estimate.unadjustedFunctionPoints,
-          this.estimate.valueAdjustmentFactor,
+          this.estimate.valueAdjustmentFactor || 1.0,
         );
 
       // Calculate effort
       this.estimate.estimatedEffortHours =
         FunctionPointCalculator.calculateEffortHours(
           this.estimate.adjustedFunctionPoints,
-          this.estimate.productivityFactor,
+          this.estimate.productivityFactor || 10,
         );
     } catch (error) {
       this.errors.push(`Failed to calculate metrics: ${error.message}`);

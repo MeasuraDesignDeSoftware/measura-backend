@@ -48,7 +48,7 @@ class PDFReport implements IReport {
         },
       });
 
-      return pdf;
+      return Buffer.from(pdf);
     } finally {
       await browser.close();
     }

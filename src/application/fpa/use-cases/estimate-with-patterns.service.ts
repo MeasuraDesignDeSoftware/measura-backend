@@ -309,7 +309,13 @@ export class EstimateWithPatternsService {
 
     // Step 2: CHAIN OF RESPONSIBILITY - Validate all components
     this.logger.log('Step 2: Validating components with CHAIN OF RESPONSIBILITY');
-    const validationResults = [];
+    const validationResults: Array<{
+      isValid: boolean;
+      complexity?: string;
+      functionPoints?: number;
+      errors: string[];
+      warnings: string[];
+    }> = [];
     for (const component of params.components) {
       const result = await this.validateFPAComponent(
         component.type,

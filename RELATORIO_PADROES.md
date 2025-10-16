@@ -24,12 +24,26 @@ Este relatório documenta a aplicação de **6 padrões de projeto** do catálog
 
 ---
 
-## 1. Factory Method (Método Fábrica)
+## 1. Factory Method
 
 ### Classificação GoF
 - **Tipo:** Padrão Criacional
 - **Escopo:** Classe
 - **Intenção:** Definir uma interface para criar objetos, mas deixar as subclasses decidirem qual classe instanciar.
+
+### Por Que Este Padrão?
+
+O sistema Measura precisa gerar relatórios de estimativas de pontos de função em múltiplos formatos (PDF, CSV, JSON). Cada formato possui lógica de criação completamente diferente e bibliotecas específicas. Sem o Factory Method, o código cliente ficaria acoplado aos detalhes de implementação de cada formato, dificultando manutenção e extensão.
+
+### Em Quais Classes?
+
+- **Creator Abstrato:** `ReportFactory` - Define interface `generateReport()`
+- **Creators Concretos:**
+  - `PDFReportFactory` - Usa Puppeteer para gerar PDF
+  - `CSVReportFactory` - Formata dados em CSV
+  - `JSONReportFactory` - Serializa dados em JSON
+- **Product Interface:** `IReport` - Interface comum dos relatórios
+- **Products Concretos:** `PDFReport`, `CSVReport`, `JSONReport`
 
 ### Localização no Código
 
@@ -93,12 +107,23 @@ async generateReport(estimate: Estimate, format: 'pdf' | 'csv' | 'json') {
 
 ---
 
-## 2. Builder (Construtor)
+## 2. Builder
 
 ### Classificação GoF
 - **Tipo:** Padrão Criacional
 - **Escopo:** Objeto
 - **Intenção:** Separar a construção de um objeto complexo de sua representação, permitindo que o mesmo processo de construção possa criar diferentes representações.
+
+### Por Que Este Padrão?
+
+A entidade `Estimate` possui mais de 20 campos, incluindo 14 características gerais do sistema (GSC), 5 tipos de componentes FPA, múltiplas dependências de cálculo e validações complexas. Criar essa entidade diretamente via construtor ou objeto literal é propenso a erros, resultando em estados inválidos e inconsistentes.
+
+### Em Quais Classes?
+
+- **Builder Interface:** `IEstimateBuilder` - Define métodos de construção
+- **Concrete Builder:** `EstimateBuilder` - Implementa construção passo a passo com validações
+- **Director (opcional):** `EstimateDirector` - Encapsula sequências comuns de construção
+- **Product:** `Estimate` - Entidade complexa sendo construída
 
 ### Localização no Código
 
@@ -176,12 +201,24 @@ async createEstimateUsingBuilder(params) {
 
 ---
 
-## 3. Decorator (Decorador)
+## 3. Decorator
 
 ### Classificação GoF
 - **Tipo:** Padrão Estrutural
 - **Escopo:** Objeto
 - **Intenção:** Anexar responsabilidades adicionais a um objeto dinamicamente. Decoradores fornecem uma alternativa flexível ao uso de subclasses para estender funcionalidades.
+
+### Por Que Este Padrão?
+
+Os repositórios do sistema necessitam de preocupações transversais (logging, caching, métricas, auditoria) sem poluir a lógica principal de acesso a dados. Implementar essas funcionalidades diretamente nos repositórios violaria o Single Responsibility Principle e dificultaria manutenção e testes.
+
+### Em Quais Classes?
+
+- **Component Interface:** `IBaseRepository<T>` - Interface comum de repositórios
+- **Concrete Components:** `UserRepository`, `ProjectRepository`, `EstimateRepository` - Repositórios base
+- **Decorators:**
+  - `LoggingRepositoryDecorator` - Adiciona logging de operações
+  - `CachingRepositoryDecorator` - Adiciona cache em memória
 
 ### Localização no Código
 
@@ -257,12 +294,28 @@ const repository = withLoggingAndCaching(
 
 ---
 
-## 4. Chain of Responsibility (Cadeia de Responsabilidade)
+## 4. Chain of Responsibility
 
 ### Classificação GoF
 - **Tipo:** Padrão Comportamental
 - **Escopo:** Objeto
 - **Intenção:** Evitar acoplamento do remetente de uma solicitação ao seu receptor, dando a mais de um objeto a oportunidade de tratar a solicitação. Encadear os objetos receptores e passar a solicitação ao longo da cadeia até que um objeto a trate.
+
+### Por Que Este Padrão?
+
+A validação de componentes FPA requer múltiplas etapas sequenciais e interdependentes (tipo, DET, TR/FTR, complexidade, pontos de função, consistência). Cada etapa depende do sucesso da anterior e pode falhar independentemente. Uma função monolítica com ifs aninhados seria difícil de testar, manter e estender.
+
+### Em Quais Classes?
+
+- **Handler Abstrato:** `ValidationHandler` - Define interface `handle()` e `setNext()`
+- **Handlers Concretos:**
+  - `ComponentTypeValidator` - Valida tipo do componente FPA
+  - `DETValidator` - Valida Data Element Types
+  - `TRFTRValidator` - Valida TR (data) ou FTR (transactional)
+  - `ComplexityValidationHandler` - Calcula complexidade baseada em matrizes
+  - `FunctionPointsValidator` - Valida pontos de função calculados
+  - `ConsistencyValidator` - Valida consistência geral
+- **Cliente:** `FPAComponentValidator` - Monta e executa a cadeia
 
 ### Localização no Código
 
@@ -375,12 +428,26 @@ async validateFPAComponent(componentType, param1, param2) {
 
 ---
 
-## 5. Observer (Observador)
+## 5. Observer
 
 ### Classificação GoF
 - **Tipo:** Padrão Comportamental
 - **Escopo:** Objeto
 - **Intenção:** Definir uma dependência um-para-muitos entre objetos, de modo que quando um objeto muda de estado, todos os seus dependentes são notificados e atualizados automaticamente.
+
+### Por Que Este Padrão?
+
+Quando uma estimativa muda de status (DRAFT → FINALIZED → ARCHIVED), múltiplas ações precisam ocorrer automaticamente: enviar emails, registrar logs, salvar auditoria, disparar webhooks. Acoplar todas essas ações no service principal viola Single Responsibility e dificulta adicionar novas ações no futuro.
+
+### Em Quais Classes?
+
+- **Subject Interface:** `IEstimateSubject` - Define `attach()`, `detach()`, `notify()`
+- **Subject Concreto:** `EstimateSubject` - Gerencia lista de observers e notificações
+- **Observer Interface:** `IEstimateObserver` - Define `update()` e `shouldNotify()`
+- **Observers Concretos:**
+  - `EmailNotificationObserver` - Envia emails para stakeholders
+  - `LogObserver` - Registra mudanças em logs
+  - `AuditObserver` - Salva trilha de auditoria no banco
 
 ### Localização no Código
 
@@ -500,12 +567,23 @@ shouldNotify(event: EstimateStatusChangeEvent): boolean {
 
 ---
 
-## 6. Singleton (Único)
+## 6. Singleton
 
 ### Classificação GoF
 - **Tipo:** Padrão Criacional
 - **Escopo:** Objeto
 - **Intenção:** Garantir que uma classe tenha apenas uma instância e fornecer um ponto global de acesso a ela.
+
+### Por Que Este Padrão?
+
+O `ComplexityCalculator` contém matrizes de complexidade FPA (constantes oficiais IFPUG) e algoritmos de cálculo que são imutáveis, stateless e compartilhados por todo o sistema. Criar múltiplas instâncias desperdiçaria memória desnecessariamente, já que todos os métodos são puros e não mantêm estado.
+
+### Em Quais Classes?
+
+- **Singleton:** `ComplexityCalculator` - Classe com métodos static e matrizes readonly compartilhadas
+- Garante uma única instância em memória das matrizes de complexidade
+- Métodos static permitem acesso global sem necessidade de instanciação
+- Decorated com `@Injectable()` do NestJS para garantir singleton no container de DI
 
 ### Localização no Código
 
