@@ -3,7 +3,7 @@
 
 **Data:** 15 de Outubro de 2025
 **Equipe:** João Victor Ferreira e Lohine Mussi
-**Disciplina:** Padrões de Projeto de Software
+**Disciplina:** Design de Software
 
 ---
 
